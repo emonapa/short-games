@@ -1,0 +1,8 @@
+build/
+libs/
+venv/
+__pycache__/
+
+*.svg
+*.zip
+
