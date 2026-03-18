@@ -11,7 +11,6 @@ class EduBubble(QGraphicsItem):
         self.is_reversible = is_reversible
         self.setZValue(50.0)
 
-        # Dynamická šířka podle délky textu, výška fixní pro hezké kolečko
         font = QFont("Consolas", 9, QFont.Bold)
         metrics = QFontMetrics(font)
         text_width = metrics.horizontalAdvance(self.text)
@@ -138,8 +137,8 @@ class EducationManager:
         live_mask = self.scene.compute_live_mask_all_edges()
         is_left = (self.scene.player_to_move == hb_solver.EDGE_BLUE)
 
-        solver.initialize(None)
-        root_game = solver.solve_with_components(g, live_mask)
+        solver.initialize()
+        root_game = solver.solve(g, live_mask)
 
         valid_moves = []
         for i, e in enumerate(self.scene.edge_items):
@@ -151,7 +150,7 @@ class EducationManager:
             temp_mask = live_mask & ~(1 << idx)
             mask_after_i = solver.cleanup_position(g, temp_mask)
 
-            g_i = solver.solve_with_components(g, mask_after_i)
+            g_i = solver.solve(g, mask_after_i)
             move_data[idx] = { 'g_i': g_i, 'mask': mask_after_i, 'type': 'normal', 'ref_idx': None }
 
         # 1. REVERZIBILNÍ TAHY (Hledáme tu absolutně NEJHORŠÍ odpověď protihráče)
@@ -170,7 +169,7 @@ class EducationManager:
                     temp_mask_j = mask_after_i & ~(1 << j)
                     mask_after_j = solver.cleanup_position(g, temp_mask_j)
 
-                    g_ij = solver.solve_with_components(g, mask_after_j)
+                    g_ij = solver.solve(g, mask_after_j)
                     if not g_ij: continue
 
                     is_rev = False

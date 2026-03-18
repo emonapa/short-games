@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <assert.h>
 
+#include "error.h"
+
 #include "position_cache.h"
 #include "config.h"
 #include "singletons.h"
@@ -33,8 +35,7 @@ void position_cache_init(size_t pos_size) {
     if (position_cache == NULL) {
         pos_memo_size = pos_size;
         pos_memo_mask = pos_size - 1;
-        printf("pos_mask = %lX\n", pos_memo_mask);
-        pos_max_items = (size_t)(pos_size * 0.75);
+        pos_max_items = MAX_ITEMS(pos_size);
 
         position_cache = (HashEntry *)calloc(pos_memo_size, sizeof(HashEntry));
         if (position_cache == NULL) {
@@ -71,7 +72,17 @@ int position_cache_get(const BaseGraph *g, edge_mask_t live_mask, Game **out_val
 }
 
 void position_cache_insert(const BaseGraph *g, edge_mask_t live_mask, Game *value) {
-    assert(g != NULL);
+    if (g == NULL || value == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    static int already_reported = 0;
+    if (pos_items_count >= pos_max_items) {
+        if (!already_reported) {
+            warning("Position cache full at %zu items, no new elements.\n", pos_items_count);
+            already_reported = 1;
+        }
+        return;
+    }
+
     if (live_mask == 0) return;
 
     uint64_t h = hash_graph_state(g, live_mask);

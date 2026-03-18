@@ -67,7 +67,6 @@ def deserialize_scene(scene, data: Dict[str, Any]) -> None:
         scene.vertex_pos[i].setY(float(y))
         scene.g.num_vertices = i + 1
 
-        # OPRAVA 2: Musíme dynamicky poznat, jestli je načítaný vrchol na zemi
         is_gnd = (float(y) == scene.ground_y)
         scene.is_ground[i] = is_gnd
         scene._render_vertex(i, is_ground=is_gnd)
@@ -76,7 +75,6 @@ def deserialize_scene(scene, data: Dict[str, Any]) -> None:
     scene.g.num_edges = 0
     scene.edge_items.clear()
 
-    # Teď už se hrany správně napojí na vizuální body
     for (u, v, color) in edges:
         scene._add_edge(int(u), int(v), int(color))
 

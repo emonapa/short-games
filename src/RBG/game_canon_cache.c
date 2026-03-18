@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "error.h"
+
 #include "game_canon_cache.h"
 #include "config.h"
 
@@ -26,16 +28,14 @@ static uint32_t hash_ptr(uintptr_t p) {
 }
 
 void game_canon_cache_init(size_t canon_size) {
+    if (canon_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize canon cache with zero size.\n");
     if (game_canon_cache == NULL) {
         canon_memo_size = canon_size;
         canon_memo_mask = canon_size - 1;
-        canon_max_items = (size_t)(canon_size * 0.75); // 75 % limit
+        canon_max_items = MAX_ITEMS(canon_size); // 75 % limit
 
         game_canon_cache = (CanonEntry *)calloc(canon_memo_size, sizeof(CanonEntry));
-        if (game_canon_cache == NULL) {
-            fprintf(stderr, "FATAL ERROR: Nedostatek pameti pro CANON cache!\n");
-            exit(EXIT_FAILURE);
-        }
+        if (game_canon_cache == NULL) error_exit(ERR_MALLOC, "");
     }
 }
 
@@ -45,7 +45,8 @@ void game_canon_cache_free(void) {
 }
 
 int game_canon_cache_get(Game *key, Game **out) {
-    assert(key != NULL);
+    if (key == NULL) error_exit(ERR_NULL_POINTER, "");
+
     uintptr_t k = (uintptr_t)key;
     size_t idx = hash_ptr(k);
 
@@ -61,7 +62,17 @@ int game_canon_cache_get(Game *key, Game **out) {
 }
 
 void game_canon_cache_put(Game *key, Game *value) {
-    assert(key != NULL);
+    if (key == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    static int already_reported = 0;
+    if (canon_items_count >= canon_max_items) {
+        if (!already_reported) {
+            warning("Canon cache full at %zu items, no new elements.\n", canon_items_count);
+            already_reported = 1;
+        }
+        return;
+    }
+
     uintptr_t k = (uintptr_t)key;
     size_t idx = hash_ptr(k);
 

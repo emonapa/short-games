@@ -1,6 +1,6 @@
 import os
 import ctypes
-from ctypes import c_uint8, c_uint64, c_int, Structure, POINTER
+from ctypes import c_uint8, c_uint64, c_int, Structure, POINTER, c_float
 from ctypes import c_char_p,  c_void_p
 
 
@@ -63,14 +63,15 @@ class HBSolver:
                 raise FileNotFoundError(f"Knihovna nenalezena: {lib_path}")
 
         self.lib = ctypes.CDLL(lib_path)
+        self.memory_multiplier = 0.5
 
         # Mapování C funkcí
         #self.lib.solver_initialize.argtypes = [POINTER(CBaseGraph)]
         self.lib.solver_initialize.argtypes = []
         self.lib.solver_initialize.restype = None
 
-        self.lib.solver_solve_with_components.argtypes = [POINTER(CBaseGraph), c_uint128]
-        self.lib.solver_solve_with_components.restype = POINTER(CGame)
+        self.lib.solve.argtypes = [POINTER(CBaseGraph), c_uint128]
+        self.lib.solve.restype = POINTER(CGame)
 
         self.lib.game_zero.argtypes = []
         self.lib.game_zero.restype = POINTER(CGame)
@@ -81,22 +82,60 @@ class HBSolver:
         self.lib.cleanup_position.argtypes = [POINTER(CBaseGraph), c_uint128]
         self.lib.cleanup_position.restype = c_uint128
 
-        self.lib.game_get_string.argtypes = [c_void_p]
+        self.lib.game_get_string.argtypes = [c_void_p, c_int]
         self.lib.game_get_string.restype = c_char_p
+
 
         self.lib.solver_free.argtypes = []
         self.lib.solver_free.restype = None
 
-    # wrappery
-    def initialize(self, graph):
-        if graph is None:
-            self.lib.solver_initialize(None)
-        else:
-            self.lib.solver_initialize(ctypes.byref(graph))
+        # combo box
+        self.lib.game_make.argtypes = [POINTER(POINTER(CGame)), c_int,
+                                       POINTER(POINTER(CGame)), c_int]
+        self.lib.game_make.restype  = POINTER(CGame)
 
-    def solve_with_components(self, graph: CBaseGraph, live_mask: int):
+        self.lib.game_canonicalize.argtypes = [POINTER(CGame)]
+        self.lib.game_canonicalize.restype  = POINTER(CGame)
+
+        self.lib.game_add.argtypes = [POINTER(CGame), POINTER(CGame)]
+        self.lib.game_add.restype  = POINTER(CGame)
+
+        # -------------------calculator helpery-------------------
+        self.lib.game_negate.argtypes = [POINTER(CGame)]
+        self.lib.game_negate.restype = POINTER(CGame)
+
+        self.lib.make_int.argtypes = [c_int]
+        self.lib.make_int.restype  = POINTER(CGame)
+
+        self.lib.make_dyadic.argtypes = [c_int, c_int]
+        self.lib.make_dyadic.restype  = POINTER(CGame)
+
+        self.lib.make_nimber.argtypes = [c_int]
+        self.lib.make_nimber.restype  = POINTER(CGame)
+
+        self.lib.make_up_multiple.argtypes = [c_int, c_int]
+        self.lib.make_up_multiple.restype  = POINTER(CGame)
+
+        self.lib.make_down_multiple.argtypes = [c_int, c_int]
+        self.lib.make_down_multiple.restype  = POINTER(CGame)
+
+        self.lib.game_star.argtypes = []
+        self.lib.game_star.restype  = POINTER(CGame)
+
+        self.lib.game_up.argtypes = []
+        self.lib.game_up.restype  = POINTER(CGame)
+
+        self.lib.game_down.argtypes = []
+        self.lib.game_down.restype  = POINTER(CGame)
+        # ---------------------------------------------------------
+
+    # wrappery
+    def initialize(self):
+        self.lib.solver_initialize((c_float)(self.memory_multiplier))
+
+    def solve(self, graph: CBaseGraph, live_mask: int):
         mask_128 = int_to_uint128(live_mask)
-        return self.lib.solver_solve_with_components(ctypes.byref(graph), mask_128)
+        return self.lib.solve(ctypes.byref(graph), mask_128)
 
     def cleanup_position(self, graph: CBaseGraph, live_mask: int) -> int:
         mask_128 = int_to_uint128(live_mask)
@@ -110,12 +149,55 @@ class HBSolver:
     def game_geq(self, g1, g2) -> bool:
         return bool(self.lib.game_geq(g1, g2))
 
-    def get_game_value_string(self, game_ptr) -> str:
+    def get_game_value_string(self, game_ptr, format) -> str:
         if not game_ptr:
             return "NULL"
         # c_char_p se v Pythonu převede na bytes, musíme ho dekódovat
-        c_string_bytes = self.lib.game_get_string(game_ptr)
+        c_string_bytes = self.lib.game_get_string(game_ptr, format)
         return c_string_bytes.decode('utf-8')
 
     def free_all(self):
         self.lib.solver_free()
+
+    def game_make(self, lefts: list, rights: list):
+        ArrT = POINTER(CGame) * max(len(lefts), 1)
+        ArrT_r = POINTER(CGame) * max(len(rights), 1)
+        l = ArrT(*lefts)  if lefts  else ArrT()
+        r = ArrT_r(*rights) if rights else ArrT_r()
+        return self.lib.game_make(l, len(lefts), r, len(rights))
+
+    def game_canonicalize(self, ptr):
+        return self.lib.game_canonicalize(ptr)
+
+    def game_add(self, a, b):
+        return self.lib.game_add(a, b)
+
+    def game_negate(self, ptr):
+        return self.lib.game_negate(ptr)
+
+    # -------------------calculator helpery-------------------
+    def game_star(self):
+        return self.lib.game_star()
+
+    def game_up(self):
+        return self.lib.game_up()
+
+    def game_down(self):
+        return self.lib.game_down()
+
+    def make_int(self, n: int):
+        return self.lib.make_int(n)
+
+    def make_dyadic(self, p: int, q: int):
+        result = self.lib.make_dyadic(p, q)
+        return result if result else None
+
+    def make_nimber(self, n: int):
+        return self.lib.make_nimber(n)
+
+    def make_up_multiple(self, n: int, with_star: int):
+        return self.lib.make_up_multiple(n, with_star)
+
+    def make_down_multiple(self, n: int, with_star: int):
+        return self.lib.make_down_multiple(n, with_star)
+    # ---------------------------------------------------------

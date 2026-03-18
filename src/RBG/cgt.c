@@ -2,46 +2,38 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "error.h"
+#include "config.h"
+
 #include "game_intern_cache.h"
 #include "game_operations_cache.h"
 #include "game_canon_cache.h"
 
 #include "stack.h"
 #include "memory.h"
-#include "config.h"
 #include "singletons.h"
 
 int cannon_count = 0;
 int eq_count = 0;
 int add_count = 0;
 int make_count = 0;
-int info_count = 1000000;
+int info_count = 100000000;
 
 
-void cgt_memo_init(size_t free_ram_bytes) {
-    size_t ram_to_use = free_ram_bytes * HOW_MUCH_MEM;
+void cgt_memo_init(size_t free_ram_bytes, float memory_multiplier) {
+    if (free_ram_bytes == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to solve with zero memory.\n");
+    if (memory_multiplier > 1 || memory_multiplier < 0) error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
+
+    size_t ram_to_use = free_ram_bytes * memory_multiplier;
 
     // rozdeleni procent
-    double pct_geq    = 0.88;
-    double pct_canon  = 0.03;
-    double pct_intern = 0.36;
-    double pct_add    = 0.02;
 
-    size_t geq_size = get_nearest_power_of_2((size_t)(ram_to_use * pct_geq) / sizeof(GeqEntry));
-    size_t add_size = get_nearest_power_of_2((size_t)(ram_to_use * pct_add) / sizeof(AddEntry));
+    size_t geq_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_GEQ) / sizeof(GeqEntry));
+    size_t add_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_ADD) / sizeof(AddEntry));
 
-    size_t canon_size = get_nearest_power_of_2((size_t)(ram_to_use * pct_canon) / sizeof(CanonEntry));
-    size_t intern_size = get_nearest_power_of_2((size_t)(ram_to_use * pct_intern) / sizeof(InternEntry));
+    size_t canon_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_CANON) / sizeof(CanonEntry));
+    size_t intern_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_INTERN) / sizeof(InternEntry));
 
-    printf("Sizeof GeqEntry = %ld\n", sizeof(GeqEntry));
-    printf("Sizeof AddEntry = %ld\n", sizeof(AddEntry));
-    printf("Sizeof CanonEntry = %ld\n", sizeof(CanonEntry));
-    printf("Sizeof InternEntry = %ld\n", sizeof(InternEntry));
-
-    printf("geq_size = %gMB\n", (ram_to_use * pct_geq)/(1024*1024));
-    printf("add_size = %gMB\n", (ram_to_use * pct_add)/(1024*1024));
-    printf("canon_size = %gMB\n", (ram_to_use * pct_canon)/(1024*1024));
-    printf("intern_size = %gMB\n", (ram_to_use * pct_intern)/(1024*1024));
 
     // inicializace
     game_operations_cache_init(geq_size, add_size);
@@ -62,6 +54,8 @@ void cgt_memo_free(void) {
    ------------------------------------------------------------ */
 Game* game_make(Game **left, int L_count, Game **right, int R_count) {
     Game *g = (Game*)malloc(sizeof(Game));
+    if (g == NULL) error_exit(ERR_MALLOC, "");
+
     g->L_count = L_count;
     g->R_count = R_count;
     //TODO
@@ -71,24 +65,21 @@ Game* game_make(Game **left, int L_count, Game **right, int R_count) {
     g->left = NULL;
     if (L_count > 0) {
         g->left = (Game**)malloc((size_t)L_count * sizeof(Game*));
+        if (g->left == NULL) error_exit(ERR_MALLOC, "");
+
         for (int i = 0; i < L_count; i++) g->left[i] = left[i];
     }
 
     g->right = NULL;
     if (R_count > 0) {
         g->right = (Game**)malloc((size_t)R_count * sizeof(Game*));
+        if (g->right == NULL) error_exit(ERR_MALLOC, "");
+
         for (int i = 0; i < R_count; i++) g->right[i] = right[i];
     }
 
     return g;
 }
-
-
-
-
-
-
-
 
 // Frame pro zasobnik
 typedef struct {
@@ -99,6 +90,8 @@ typedef struct {
 } GeqFrame;
 
 int game_geq(Game *G_root, Game *H_root) {
+    if (G_root == NULL || H_root == NULL) error_exit(ERR_NULL_POINTER, "");
+
     TStack stack;
     stack_init(&stack, sizeof(GeqFrame));
 
@@ -209,21 +202,23 @@ int game_eq(Game *G, Game *H) {
     return game_geq(G, H) && game_geq(H, G);
 }
 
-
-
 static void replace_left_option(Game *G, int index, Game *GLR) {
+    if (G == NULL || GLR == NULL) error_exit(ERR_NULL_POINTER, "");
+
     int old_count = G->L_count;
-    int add_count = GLR->L_count;
-    int new_count = old_count - 1 + add_count;
+    int replace_count = GLR->L_count;
+    int new_count = old_count - 1 + replace_count;
 
     Game **new_arr = NULL;
     if (new_count > 0) {
         new_arr = (Game**)malloc(new_count * sizeof(Game*));
+        if (new_arr == NULL) error_exit(ERR_MALLOC, "");
+
         int dst = 0;
         // 1. Zkopírujeme staré tahy před indexem
         for (int i = 0; i < index; i++) new_arr[dst++] = G->left[i];
         // 2. Vložíme vnuky (tahy z potrestané pozice)
-        for (int i = 0; i < add_count; i++) new_arr[dst++] = GLR->left[i];
+        for (int i = 0; i < replace_count; i++) new_arr[dst++] = GLR->left[i];
         // 3. Zkopirujeme staré tahy za indexem
         for (int i = index + 1; i < old_count; i++) new_arr[dst++] = G->left[i];
     }
@@ -234,16 +229,20 @@ static void replace_left_option(Game *G, int index, Game *GLR) {
 }
 
 static void replace_right_option(Game *G, int index, Game *GRL) {
+    if (G == NULL || GRL == NULL) error_exit(ERR_NULL_POINTER, "");
+
     int old_count = G->R_count;
-    int add_count = GRL->R_count;
-    int new_count = old_count - 1 + add_count;
+    int replace_count = GRL->R_count;
+    int new_count = old_count - 1 + replace_count;
 
     Game **new_arr = NULL;
     if (new_count > 0) {
         new_arr = (Game**)malloc(new_count * sizeof(Game*));
+        if(new_arr == NULL) error_exit(ERR_MALLOC, "");
+
         int dst = 0;
         for (int i = 0; i < index; i++) new_arr[dst++] = G->right[i];
-        for (int i = 0; i < add_count; i++) new_arr[dst++] = GRL->right[i];
+        for (int i = 0; i < replace_count; i++) new_arr[dst++] = GRL->right[i];
         for (int i = index + 1; i < old_count; i++) new_arr[dst++] = G->right[i];
     }
 
@@ -257,7 +256,10 @@ static void replace_right_option(Game *G, int index, Game *GRL) {
 // -----------------------------------------------------------------
 
 Game* game_canonicalize(Game *G) {
-    if (!G) return NULL;
+    if (G == NULL) {
+        error_exit(ERR_NULL_POINTER, "");
+    }
+
     if (G == game_zero() || G == game_star()) return G;
 
     Game *cached = NULL;
@@ -378,8 +380,12 @@ Game* game_canonicalize(Game *G) {
    Součet her s memoizací
    ------------------------------------------------------------ */
 Game* game_add(Game *G, Game *H) {
+    if (G == NULL && H == NULL) error_exit(ERR_NULL_POINTER, "Both games to add are NULL.\n");
     if (!G) return H;
     if (!H) return G;
+
+    G = game_canonicalize(G);
+    H = game_canonicalize(H);
 
     if (G->L_count == 0 && G->R_count == 0) return H;
     if (H->L_count == 0 && H->R_count == 0) return G;
@@ -399,8 +405,16 @@ Game* game_add(Game *G, Game *H) {
     int new_l_count = G->L_count + H->L_count;
     int new_r_count = G->R_count + H->R_count;
 
-    Game **left_opts = new_l_count > 0 ? (Game**)malloc((size_t)new_l_count * sizeof(Game*)) : NULL;
-    Game **right_opts = new_r_count > 0 ? (Game**)malloc((size_t)new_r_count * sizeof(Game*)) : NULL;
+    Game **left_opts = NULL;
+    Game **right_opts = NULL;
+    if (new_l_count > 0) {
+        left_opts = (Game**)malloc((size_t)new_l_count * sizeof(Game*));
+        if (left_opts == NULL) error_exit(ERR_MALLOC, "");
+    }
+    if (new_r_count > 0) {
+        right_opts = (Game**)malloc((size_t)new_r_count * sizeof(Game*));
+        if (right_opts == NULL) error_exit(ERR_MALLOC, "");
+    }
 
     int idx = 0;
     for (int i = 0; i < G->L_count; i++) left_opts[idx++] = game_add(G->left[i], H);
@@ -411,7 +425,12 @@ Game* game_add(Game *G, Game *H) {
     for (int i = 0; i < H->R_count; i++) right_opts[idx++] = game_add(G, H->right[i]);
 
     Game *sum = game_make(left_opts, new_l_count, right_opts, new_r_count);
+    if (sum == NULL) warning("Got NULL from canonicalize.\n");
+    printf("new_l_count = %d, new_r_count = %d, L=%zu, R=%zu, SUM=%p\n",
+        new_l_count, new_r_count, left_opts, right_opts, sum);
+    printf("1\n");
     sum = game_canonicalize(sum);
+    printf("2\n");
 
     if (left_opts) free(left_opts);
     if (right_opts) free(right_opts);
@@ -419,6 +438,46 @@ Game* game_add(Game *G, Game *H) {
     game_add_cache_put(G, H, sum);
     return sum;
 }
+
+
+Game* game_negate(Game *G) {
+    if (G == NULL) return NULL;
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+
+    if (G->R_count > 0) {
+        new_left = malloc(sizeof(Game*) * G->R_count);
+        if (!new_left) {
+            warning("Malloc failed.\n");
+            return NULL;
+        }
+    }
+    if (G->L_count > 0) {
+        new_right = malloc(sizeof(Game*) * G->L_count);
+        if (!new_right) {
+            free(new_left);
+            warning("Malloc failed.\n");
+            return NULL; }
+    }
+
+    for (int i = 0; i < G->R_count; i++) {
+        new_left[i] = game_negate(G->right[i]);
+        if (!new_left[i]) { free(new_left); free(new_right); return NULL; }
+    }
+    for (int i = 0; i < G->L_count; i++) {
+        new_right[i] = game_negate(G->left[i]);
+        if (!new_right[i]) { free(new_left); free(new_right); return NULL; }
+    }
+
+    Game *res = game_canonicalize(
+        game_make(new_left, G->R_count, new_right, G->L_count)
+    );
+    free(new_left);
+    free(new_right);
+    return res;
+}
+
 
 /* ------------------------------------------------------------
    Outcome

@@ -14,8 +14,12 @@
 
 /* Types of errors */
 typedef enum {
-    ERR_MALLOC = 97,               // Memory allocation error
-    ERR_EMPTY_STACK = 98,          // Empty stack error
+    ERR_NULL_POINTER = 1,
+    ERR_SOLVE_WITH_0_MEM = 2,
+
+    ERR_EMPTY_STACK = 50,          // Empty stack error
+
+    ERR_MALLOC = 98,               // Memory allocation error
     ERR_OTHER = 99                 // Other unspecified errors
 } ERROR_CODES;
 

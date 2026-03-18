@@ -3,6 +3,8 @@ libs/
 venv/
 __pycache__/
 
+TAGS
+
 *.svg
 *.zip
 

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "error.h"
+
 #include "game_operations_cache.h"
 #include "config.h"
 
@@ -37,28 +39,24 @@ static uint32_t hash_pair(uintptr_t a, uintptr_t b, uint32_t mask) {
 
 
 void game_operations_cache_init(size_t geq_size, size_t add_size) {
+    if (geq_size == 0 || add_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize geq or add cache with zero size.\n");
+
     if (game_geq_cache == NULL) {
         geq_memo_size = geq_size;
         geq_memo_mask = geq_size - 1;
-        geq_max_items = (size_t)(geq_size * 0.75); // 75 % limit
+        geq_max_items = MAX_ITEMS(geq_size); // 75 % limit
 
         game_geq_cache = (GeqEntry *)calloc(geq_memo_size, sizeof(GeqEntry));
-        if (game_geq_cache == NULL) {
-            fprintf(stderr, "FATAL ERROR: Nedostatek pameti pro GEQ cache!\n");
-            exit(EXIT_FAILURE);
-        }
+        if (game_geq_cache == NULL) error_exit(ERR_MALLOC, "");
     }
 
     if (game_add_cache == NULL) {
         add_memo_size = add_size;
         add_memo_mask = add_size - 1;
-        add_max_items = (size_t)(add_size * 0.75); // 75 % limit
+        add_max_items = MAX_ITEMS(add_size); // 75 % limit
 
         game_add_cache = (AddEntry *)calloc(add_memo_size, sizeof(AddEntry));
-        if (game_add_cache == NULL) {
-            fprintf(stderr, "FATAL ERROR: Nedostatek pameti pro ADD cache!\n");
-            exit(EXIT_FAILURE);
-        }
+        if (game_add_cache == NULL) error_exit(ERR_MALLOC, "");
     }
 }
 
@@ -71,7 +69,8 @@ void game_operations_cache_free_all(void) {
 
 /* add memo */
 int game_add_cache_get(Game *A, Game *B, Game **out) {
-    assert(A != NULL && B != NULL);
+    if (A == NULL || B == NULL) error_exit(ERR_NULL_POINTER, "");
+
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;
     size_t idx = hash_pair(a, b, add_memo_mask);
@@ -88,8 +87,16 @@ int game_add_cache_get(Game *A, Game *B, Game **out) {
 }
 
 void game_add_cache_put(Game *A, Game *B, Game *value) {
-    assert(A != NULL && B != NULL);
-    if (add_items_count >= add_max_items) return;
+    if (A == NULL || B == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    static int already_reported = 0;
+    if (add_items_count >= add_max_items) {
+        if (!already_reported) {
+            warning("Add cache full at %zu items, no new elements.\n", add_items_count);
+            already_reported = 1;
+        }
+        return;
+    }
 
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;
@@ -133,7 +140,16 @@ int game_geq_cache_get(Game *A, Game *B, uint8_t *out) {
 }
 
 void game_geq_cache_put(Game *A, Game *B, uint8_t value) {
-    if (geq_items_count >= geq_max_items) return;
+    if (A == NULL || B == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    static int already_reported = 0;
+    if (geq_items_count >= geq_max_items) {
+        if (!already_reported) {
+            warning("Geq cache full at %zu items, no new elements.\n", geq_items_count);
+            already_reported = 1;
+        }
+        return;
+    }
 
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;

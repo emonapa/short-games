@@ -32,7 +32,7 @@ Game* game_add(Game *G, Game *H);
 // Pomocná funkce pro vypsání hry a určení vítěze
 void game_print_outcome(Game *G);
 
-void cgt_memo_init(size_t free_ram_bytes);
+void cgt_memo_init(size_t free_ram_bytes, float memory_multiplier);
 void cgt_memo_free(void);
 
 

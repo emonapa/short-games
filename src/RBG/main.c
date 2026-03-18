@@ -17,12 +17,11 @@ int main(void) {
     start.live_mask = BIT(0) | BIT(1);
     start.player_to_move = 0;
 
-    solver_initialize(&g);
+    solver_initialize(0.5);
     //printf("Zacinam resit pozici s maskou %lx...\n", start.live_mask);
 
-    Game *result = solver_exact_solve(&g, start.live_mask);
+    Game *result = solve_component(&g, start.live_mask);
 
-    // Vypíše rovnou, do které ze 4 tříd hra spadá
     game_print_outcome(result);
 
     return 0;

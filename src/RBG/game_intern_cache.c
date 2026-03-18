@@ -16,6 +16,8 @@ caching game
 #include <stdio.h>
 #include <assert.h>
 
+#include "error.h"
+
 #include "config.h"
 #include "game_intern_cache.h"
 
@@ -34,7 +36,8 @@ static int cmp_game_ptr(const void *a, const void *b) {
 }
 
 void game_intern_cache_prepare(Game *G) {
-    assert(G != NULL);
+    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
+
     if (G->L_count > 1) qsort(G->left,  (size_t)G->L_count, sizeof(Game*), cmp_game_ptr);
     if (G->R_count > 1) qsort(G->right, (size_t)G->R_count, sizeof(Game*), cmp_game_ptr);
 }
@@ -74,6 +77,8 @@ static int node_equal(Game *A, Game *B) {
 }
 
 void game_intern_cache_init(size_t intern_size) {
+    if (intern_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize intern cache with zero size.\n");
+
     if (game_intern_cache == NULL) {
         intern_memo_size = intern_size;
         intern_memo_mask = intern_size - 1;
@@ -81,10 +86,7 @@ void game_intern_cache_init(size_t intern_size) {
         intern_max_items = (size_t)(intern_size * 0.85);
 
         game_intern_cache = (InternEntry *)calloc(intern_memo_size, sizeof(InternEntry));
-        if (game_intern_cache == NULL) {
-            fprintf(stderr, "FATAL ERROR: Nedostatek pameti pro INTERN cache!\n");
-            exit(EXIT_FAILURE);
-        }
+        if (game_intern_cache == NULL) error_exit(ERR_MALLOC, "");
     }
 }
 
@@ -94,7 +96,7 @@ void game_intern_cache_free(void) {
 }
 
 Game* game_intern_cache_get(Game *G) {
-    assert(G != NULL);
+    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
 
     size_t idx = (size_t)(hash_node(G) & intern_memo_mask);
 
