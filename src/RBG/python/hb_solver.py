@@ -66,7 +66,6 @@ class HBSolver:
         self.memory_multiplier = 0.5
 
         # Mapování C funkcí
-        #self.lib.solver_initialize.argtypes = [POINTER(CBaseGraph)]
         self.lib.solver_initialize.argtypes = []
         self.lib.solver_initialize.restype = None
 
@@ -85,7 +84,6 @@ class HBSolver:
         self.lib.game_get_string.argtypes = [c_void_p, c_int]
         self.lib.game_get_string.restype = c_char_p
 
-
         self.lib.solver_free.argtypes = []
         self.lib.solver_free.restype = None
 
@@ -99,8 +97,9 @@ class HBSolver:
 
         self.lib.game_add.argtypes = [POINTER(CGame), POINTER(CGame)]
         self.lib.game_add.restype  = POINTER(CGame)
+        # combo box
 
-        # -------------------calculator helpery-------------------
+        # calculator helpery
         self.lib.game_negate.argtypes = [POINTER(CGame)]
         self.lib.game_negate.restype = POINTER(CGame)
 
@@ -127,7 +126,7 @@ class HBSolver:
 
         self.lib.game_down.argtypes = []
         self.lib.game_down.restype  = POINTER(CGame)
-        # ---------------------------------------------------------
+        # calculator helpery
 
     # wrappery
     def initialize(self):
@@ -175,7 +174,7 @@ class HBSolver:
     def game_negate(self, ptr):
         return self.lib.game_negate(ptr)
 
-    # -------------------calculator helpery-------------------
+    # calculator helpery
     def game_star(self):
         return self.lib.game_star()
 
@@ -200,4 +199,4 @@ class HBSolver:
 
     def make_down_multiple(self, n: int, with_star: int):
         return self.lib.make_down_multiple(n, with_star)
-    # ---------------------------------------------------------
+    # calculator helpery

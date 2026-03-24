@@ -25,11 +25,10 @@ typedef struct {
 void solver_initialize(const BaseGraph *g) {
     g_global = g;
     hash_game_init();
-    hash_game_preload_simple_positions(g);
 }
 
 // Iterativní výpočet hodnoty pozice (bez rekurze)
-Dyadic solver_exact_solve(const BaseGraph *g, uint64_t live_mask) {
+Dyadic solve(const BaseGraph *g, uint64_t live_mask) {
     g_global = g; // pro jistotu, kdyby solver_initialize nebyl zavolán
 
     SolverFrame stack[MAX_EDGES + 1];

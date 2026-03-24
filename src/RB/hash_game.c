@@ -64,28 +64,3 @@ void hash_game_insert(const PositionKey *key, Dyadic value) {
     }
     // tabulka plná, nic moc co dělat, prostě neinsertneme
 }
-
-// Preload: maska s jedinou hranou ze země -> známá hodnota
-void hash_game_preload_simple_positions(const BaseGraph *g) {
-    for (int e = 0; e < g->num_edges; ++e) {
-        uint8_t u = g->edges[e].u;
-        uint8_t v = g->edges[e].v;
-        if (u != 0 && v != 0) continue; // nezajímá nás, když nejde ze země
-
-        PositionKey key;
-        key.live_mask = (1ull << e);
-
-        Dyadic val;
-        if (g->edges[e].color == EDGE_BLUE) {
-            // jedna modrá hrana ze země -> hodnota +1
-            val.num = 1;
-            val.exp = 0;
-        } else {
-            // jedna červená hrana ze země -> hodnota -1
-            val.num = -1;
-            val.exp = 0;
-        }
-
-        hash_game_insert(&key, val);
-    }
-}

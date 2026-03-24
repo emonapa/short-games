@@ -1,8 +1,8 @@
 #ifndef POSITION_CACHE_H
 #define POSITION_CACHE_H
 #include <stdint.h>
-#include "game.h"
-#include "cgt.h"
+#include "raw_game.h"
+#include "short_game.h"
 
 typedef struct { edge_mask_t live_mask; } PositionKey;
 

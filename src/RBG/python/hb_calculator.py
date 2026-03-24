@@ -1,5 +1,5 @@
 """
-hb_calculator.py — CGT calculator panel.
+hb_calculator.py - CGT calculator panel.
 
 Python is responsible only for:
   - parsing the user's string into tokens
@@ -16,7 +16,7 @@ C (singletons.c) is responsible for:
   - game_add(), game_canonicalize()
   - game_get_string(Game*, enum output_format)
 
-Required additions to HBSolver in hb_solver.py — see bottom of this file.
+Required additions to HBSolver in hb_solver.py - see bottom of this file.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from hb_theme import THEME
 def _divider() -> QFrame:
     f = QFrame()
     f.setFrameShape(QFrame.HLine)
-    f.setFixedHeight(1)
+    f.setFixedHeight(2)
     f.setStyleSheet("background-color: #4a4a4a;")
     return f
 
@@ -107,7 +107,7 @@ class GameParser:
     def _parse(self, s: str):
         s = s.strip()
 
-        # -- {L | R} — handled in Python, children delegated to C -------------
+        # -- {L | R} - handled in Python, children delegated to C -------------
         if s.startswith("{") and s.endswith("}"):
             inner = s[1:-1]
             pipe = self._find_pipe(inner)
@@ -131,7 +131,7 @@ class GameParser:
                 raise ValueError(f"Invalid nimber: '{s}'")
             return self.s.make_nimber(n)
 
-        # -- arrows: ↑ ↓  with optional multiplier and * suffix ---------------
+        # -- arrows: ↑/^ ↓/v  with optional multiplier and * suffix ---------------
         s = s.replace("^", "↑").replace("v", "↓")
         for arrow, maker in [("↑", self.s.make_up_multiple),
                               ("↓", self.s.make_down_multiple)]:
@@ -248,6 +248,7 @@ class CalculatorPanel(QWidget):
         layout.addWidget(sec1)
         layout.addSpacing(14)
 
+        # Game A <-> Game B
         row1 = QHBoxLayout()
         self.unary_input = _input("Game G")
         self.unary_op    = _combo(["−G  (negace)", "Canonization"])
@@ -258,6 +259,7 @@ class CalculatorPanel(QWidget):
         layout.addLayout(row1)
         layout.addSpacing(8)
 
+        # unary result
         res1_row = QHBoxLayout()
         res1_lbl = QLabel("Result:")
         res1_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
@@ -282,9 +284,10 @@ class CalculatorPanel(QWidget):
         layout.addWidget(sec2)
         layout.addSpacing(14)
 
+        # Game A <-> Game B
         row2 = QHBoxLayout()
         self.bin_left  = _input("Game A")
-        self.bin_op    = _combo(["+", "≥", "≤", ">", "<", "=", "||"])
+        self.bin_op    = _combo(["+", "-", "≥", "≤", ">", "<", "=", "||"])
         self.bin_right = _input("Game B")
         calc2_btn      = _btn("=")
         row2.addWidget(self.bin_left, 3)
@@ -294,6 +297,7 @@ class CalculatorPanel(QWidget):
         layout.addLayout(row2)
         layout.addSpacing(8)
 
+        # binary result
         res2_row = QHBoxLayout()
         res2_lbl = QLabel("Result:")
         res2_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
@@ -303,6 +307,16 @@ class CalculatorPanel(QWidget):
         res2_row.addWidget(self.bin_result, 1)
         res2_row.addWidget(self.bin_raw)
         layout.addLayout(res2_row)
+
+        # note
+        layout.addSpacing(18)
+        note_row = QHBoxLayout()
+        layout.addWidget(_divider())
+        layout.addSpacing(18)
+        note_lbl = QLabel("Note: raw output formats only defined number, which is 0 = { | }.")
+        note_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
+        note_row.addWidget(note_lbl)
+        layout.addLayout(note_row)
 
         calc2_btn.clicked.connect(self._calc_binary)
 
@@ -356,8 +370,18 @@ class CalculatorPanel(QWidget):
             op = self.bin_op.currentText()
 
             if op == "+":
-                result = s.game_canonicalize(s.game_add(a, b))
+                a_canon = s.game_canonicalize(a)
+                b_canon = s.game_canonicalize(b)
+                result = s.game_canonicalize(s.game_add(a_canon, b_canon))
                 self.bin_result.setText(self._str(result, self.bin_raw))
+
+            if op == "-":
+                a_canon = s.game_canonicalize(a)
+                b_canon = s.game_canonicalize(b)
+                b_canon_negative = s.game_negate(b)
+                result = s.game_canonicalize(s.game_add(a_canon, b_canon_negative))
+                self.bin_result.setText(self._str(result, self.bin_raw))
+
             else:
                 geq_ab = bool(s.game_geq(a, b))
                 geq_ba = bool(s.game_geq(b, a))

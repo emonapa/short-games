@@ -1,5 +1,5 @@
 """
-hb_settings.py — Config persistence and Settings UI panel.
+hb_settings.py - Config persistence and Settings UI panel.
 
 Public API used by main.py:
     load_config() -> dict
@@ -97,7 +97,7 @@ def apply_theme_from_config() -> None:
 
 
 # ── Internal style constants (settings panel always stays dark-ish) ───────────
-# These are the panel's own chrome — they follow the theme via _on_theme_changed.
+# These are the panel's own chrome - they follow the theme via _on_theme_changed.
 
 _TOGGLE_STYLE = """
     QCheckBox::indicator { width: 42px; height: 24px; border-radius: 12px; }

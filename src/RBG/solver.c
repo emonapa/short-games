@@ -1,7 +1,3 @@
-/* TODO
-Z nejakeho duvodu se solveru FAKT nelibi grafy typu 0->1, 1->0, 0->1, ... / 0->1, 0->1, 0->1, ...
-*/
-
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,26 +8,25 @@ Z nejakeho duvodu se solveru FAKT nelibi grafy typu 0->1, 1->0, 0->1, ... / 0->1
 
 #include "solver.h"
 #include "position_cache.h"
-#include "cgt.h"
+#include "short_game.h"
 #include "stack.h"
-#include "game.h"
+#include "raw_game.h"
 #include "singletons.h"
 
-
-// pointer na graf, se kterym solver pracuje
+// pointer na graf se kterym solver pracuje
 static const BaseGraph *g_global = NULL;
 static float g_memory_multiplier = 0;
 
-//void solver_initialize(const BaseGraph *g) {
 void solver_initialize(float memory_multiplier) {
-    if (memory_multiplier > 1 || memory_multiplier < 0) error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
+    if (memory_multiplier > 1 || memory_multiplier <= 0) error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
     g_memory_multiplier = memory_multiplier;
 
     size_t free_ram_bytes = get_size_free_memory();
     size_t ram_to_use = free_ram_bytes * memory_multiplier;
 
-    cgt_memo_init(free_ram_bytes, memory_multiplier);
+    short_game_init(free_ram_bytes, memory_multiplier);
 
+    // vypocet prvku ktere se vlezou do RAM * PCT_POS
     size_t pos_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_POS) / sizeof(HashEntry));
 
     position_cache_init(pos_size);
@@ -39,7 +34,7 @@ void solver_initialize(float memory_multiplier) {
 
 void solver_free() {
     position_cache_free();
-    cgt_memo_free();
+    short_game_free();
 }
 
 // Stack frame pro iterativni vypocet hodnoty
@@ -111,7 +106,7 @@ Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
                 f->current_edge = e + 1;
                 f->pending_child_color = c;
 
-                // dite jako hodnota (zadny malloc)
+                // dite jako hodnota
                 SolverFrame child = (SolverFrame){0};
                 child.live_mask = child_mask;
                 child.stage = 0;
@@ -167,7 +162,7 @@ static int get_independent_components(const BaseGraph *g, edge_mask_t live_mask,
     uint8_t visited[MAX_VERTICES] = {0};
     int comp_count = 0;
 
-    // 1. Zvlastni pripad: Hrany, ktere jdou ze zeme zpet do zeme (smycky na vrcholu 0)
+    // 1. Special case: Hrany, ktere jdou ze zeme zpet do zeme (smycky na vrcholu 0)
     // Kazda takova hrana je sama o sobe nezavisla hra.
     for (int e = 0; e < g->num_edges; e++) {
         if ((live_mask & BIT(e)) && g->edges[e].u == 0 && g->edges[e].v == 0) {
@@ -221,6 +216,7 @@ static int get_independent_components(const BaseGraph *g, edge_mask_t live_mask,
 
     // 3. Zbytek (napriklad zcela odpojene hrany, ktere nestihl smazat cleanup)
     if (live_mask > 0) {
+        warning("There exists edge with no path to the ground.\n");
         sub_masks[comp_count++] = live_mask;
     }
 
@@ -228,50 +224,52 @@ static int get_independent_components(const BaseGraph *g, edge_mask_t live_mask,
 }
 
 static void print_stats() {
-    printf("canon_count = %ld\n", canon_items_count);
-    printf("intern_count = %ld\n", intern_items_count);
-    printf("add_count = %ld\n", add_items_count);
-    printf("geq_count = %ld\n", geq_items_count);
-    printf("pos_items_count = %ld\n", pos_items_count);
-    printf("stack_count = %ld\n", stack_items_count);
-    printf("[] make_count = %d\n", make_count);
+    printf("[CACHE] canon_count = %ld\n", canon_items_count);
+    printf("[CACHE] intern_count = %ld\n", intern_items_count);
+    printf("[CACHE] add_count = %ld\n", add_items_count);
+    printf("[CACHE] geq_count = %ld\n", geq_items_count);
+    printf("[CACHE] pos_items_count = %ld\n", pos_items_count);
+    printf("[META] stack_count = %ld\n", stack_items_count);
+    printf("[META] make_count = %d\n", make_count);
 }
+
+//#define PRINT_RESULT
 
 Game* solve(const BaseGraph *g, edge_mask_t live_mask) {
     if (live_mask == 0) return game_zero();
 
     edge_mask_t sub_masks[MAX_EDGES];
     int count = get_independent_components(g, live_mask, sub_masks);
-    // Pokud se graf neda rozdelit, pustime ho proste klasicky solverem
-    if (count <= 1) {
-        Game *result = solve_component(g, live_mask);
-        printf("========================End stats========================\n");
-        print_stats();
-        printf("=========================================================\n");
-        game_canonicalize(result);
-        game_print(result, FORMAT_FORMATED);
-        return result;
-    }
 
-    // Spocitame prvni komponentu
-    static int counter = 0;
-    printf("========================End stats========================\n");
-    printf("-------------[0] Průchod-------------\n");
-    Game *total_sum = solve_component(g, sub_masks[0]);
+    Game *total_sum = game_zero();
     print_stats();
 
+
+#ifdef PRINT_RESULT
+    printf("======================END RESULT==========================\n");
+#endif
     // Spocitame dalsi a pricteme k mezivysledku
-    for (int i = 1; i < count; i++) {
+    for (int i = 0; i < count; i++) {
         Game *sub_game = solve_component(g, sub_masks[i]);
         total_sum = game_add(total_sum, sub_game);
-        printf("-------------[%d] Průchod-------------\n", i);
+#ifdef PRINT_RESULT
+       printf("-------------[%d] Průchod-------------\n", i);
+       print_stats();
+#endif
+        // Grafy se budou pravdepodobne lisit, takze cache resetneme
         solver_free();
         solver_initialize(g_memory_multiplier);
-        print_stats();
     }
+#ifdef PRINT_RESULT
     printf("=========================================================\n");
+#endif
 
     game_canonicalize(total_sum);
-    game_print(total_sum, FORMAT_FORMATED);
+
+#ifdef PRINT_RESULT
+    const char *game_string = game_get_string(total_sum, FORMAT_FORMATED);
+    printf("%s", game_string);
+#endif
+
     return total_sum;
 }

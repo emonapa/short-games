@@ -1,7 +1,7 @@
 #ifndef SINGLETONS_H
 #define SINGLETONS_H
 
-#include "cgt.h"
+#include "short_game.h"
 
 enum output_format {
     FORMAT_RAW       = 0,   /* only substitutes 0 = {|}, everything else as {L|R} */
@@ -29,7 +29,6 @@ Game*  make_up_multiple(int n, int with_star);
 Game*  make_down_multiple(int n, int with_star);
 
 /* ── Output ───────────────────────────────────────────────────────────────── */
-void        game_print(Game *G, enum output_format format);
 const char* game_get_string(Game *G, enum output_format format);
 
 #endif /* SINGLETONS_H */

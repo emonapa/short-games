@@ -9,12 +9,14 @@
 #include "game_operations_cache.h"
 #include "config.h"
 
+// GEQ cache
 static size_t geq_memo_size = 0;
 static size_t geq_memo_mask = 0;
 size_t geq_items_count = 0;
 static size_t geq_max_items = 0;
 static GeqEntry *game_geq_cache = NULL;
 
+// ADD cache
 static size_t add_memo_size = 0;
 static size_t add_memo_mask = 0;
 size_t add_items_count = 0;
@@ -39,12 +41,13 @@ static uint32_t hash_pair(uintptr_t a, uintptr_t b, uint32_t mask) {
 
 
 void game_operations_cache_init(size_t geq_size, size_t add_size) {
-    if (geq_size == 0 || add_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize geq or add cache with zero size.\n");
+    if (geq_size <= 0 || add_size <= 0)
+        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize geq and add cache sizes %zu and %zu.\n", geq_size, add_size);
 
     if (game_geq_cache == NULL) {
         geq_memo_size = geq_size;
         geq_memo_mask = geq_size - 1;
-        geq_max_items = MAX_ITEMS(geq_size); // 75 % limit
+        geq_max_items = MAX_ITEMS(geq_size);
 
         game_geq_cache = (GeqEntry *)calloc(geq_memo_size, sizeof(GeqEntry));
         if (game_geq_cache == NULL) error_exit(ERR_MALLOC, "");
@@ -53,7 +56,7 @@ void game_operations_cache_init(size_t geq_size, size_t add_size) {
     if (game_add_cache == NULL) {
         add_memo_size = add_size;
         add_memo_mask = add_size - 1;
-        add_max_items = MAX_ITEMS(add_size); // 75 % limit
+        add_max_items = MAX_ITEMS(add_size);
 
         game_add_cache = (AddEntry *)calloc(add_memo_size, sizeof(AddEntry));
         if (game_add_cache == NULL) error_exit(ERR_MALLOC, "");
@@ -67,7 +70,7 @@ void game_operations_cache_free_all(void) {
     game_add_cache = NULL;
 }
 
-/* add memo */
+// add memo
 int game_add_cache_get(Game *A, Game *B, Game **out) {
     if (A == NULL || B == NULL) error_exit(ERR_NULL_POINTER, "");
 
@@ -92,7 +95,7 @@ void game_add_cache_put(Game *A, Game *B, Game *value) {
     static int already_reported = 0;
     if (add_items_count >= add_max_items) {
         if (!already_reported) {
-            warning("Add cache full at %zu items, no new elements.\n", add_items_count);
+            warning("Add cache full at %zu items, no new elements added.\n", add_items_count);
             already_reported = 1;
         }
         return;
@@ -122,7 +125,7 @@ void game_add_cache_put(Game *A, Game *B, Game *value) {
     }
 }
 
-/* geq memo */
+// geq memo
 int game_geq_cache_get(Game *A, Game *B, uint8_t *out) {
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;
@@ -169,8 +172,7 @@ void game_geq_cache_put(Game *A, Game *B, uint8_t value) {
             game_geq_cache[j].b = b;
             game_geq_cache[j].value = (uint8_t)(value ? 1 : 0);
 
-           geq_items_count++;
-
+            geq_items_count++;
             return;
         }
     }

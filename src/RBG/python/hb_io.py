@@ -17,8 +17,6 @@ def serialize_scene(scene) -> Dict[str, Any]:
     vertices = [(scene.vertex_pos[i].x(), scene.vertex_pos[i].y()) for i in range(n)]
     edges = []
 
-    # OPRAVA 1: Čteme z Pythonovského seznamu edge_items, který si pamatuje
-    # původní vizuální indexy vrcholů (předtím než je C solver přepsal na 0).
     for e_obj in scene.edge_items:
         edges.append((int(e_obj.u), int(e_obj.v), int(e_obj.color)))
 
@@ -51,7 +49,7 @@ def deserialize_scene(scene, data: Dict[str, Any]) -> None:
     x0, y0 = vertices[0]
     scene.vertex_pos[0].setX(float(x0))
     scene.vertex_pos[0].setY(float(y0))
-    scene.is_ground[0] = True # Raději explicitně nastavíme
+    scene.is_ground[0] = True
 
     if scene.vertex_items[0] is not None:
         scene.removeItem(scene.vertex_items[0])

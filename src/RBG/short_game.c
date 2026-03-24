@@ -1,3 +1,12 @@
+/*
+ * Final bachelors thesis
+ * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ *
+ * Faculty of Information Technology Brno University of Technology
+ * Author: Václav Matyáš (xmatyav00)
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -9,6 +18,7 @@
 #include "game_operations_cache.h"
 #include "game_canon_cache.h"
 
+#include "short_game.h"
 #include "stack.h"
 #include "memory.h"
 #include "singletons.h"
@@ -20,20 +30,19 @@ int make_count = 0;
 int info_count = 100000000;
 
 
-void cgt_memo_init(size_t free_ram_bytes, float memory_multiplier) {
-    if (free_ram_bytes == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to solve with zero memory.\n");
-    if (memory_multiplier > 1 || memory_multiplier < 0) error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
+void short_game_init(size_t free_ram_bytes, float memory_multiplier) {
+    if (free_ram_bytes <= 0)
+        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize CGT with %zuB.\n", free_ram_bytes);
+    if (memory_multiplier > 1 || memory_multiplier <= 0)
+        error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
 
     size_t ram_to_use = free_ram_bytes * memory_multiplier;
-
-    // rozdeleni procent
 
     size_t geq_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_GEQ) / sizeof(GeqEntry));
     size_t add_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_ADD) / sizeof(AddEntry));
 
     size_t canon_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_CANON) / sizeof(CanonEntry));
     size_t intern_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_INTERN) / sizeof(InternEntry));
-
 
     // inicializace
     game_operations_cache_init(geq_size, add_size);
@@ -43,7 +52,7 @@ void cgt_memo_init(size_t free_ram_bytes, float memory_multiplier) {
     singletons_init();
 }
 
-void cgt_memo_free(void) {
+void short_game_free(void) {
     game_operations_cache_free_all();
     game_canon_cache_free();
     game_intern_cache_free();
@@ -254,7 +263,11 @@ static void replace_right_option(Game *G, int index, Game *GRL) {
 // -----------------------------------------------------------------
 // HLAVNÍ FUNKCE KANONIZACE
 // -----------------------------------------------------------------
-
+// 1. Odstranit leve reverzibilni tahy
+// 2. Odstranit prave reverzibilni tahy
+// 3. Odstranit leve dominovane tahy
+// 4. Odstranit prave dominovane tahy
+// 5. Najit sebe v intern cache
 Game* game_canonicalize(Game *G) {
     if (G == NULL) {
         error_exit(ERR_NULL_POINTER, "");
@@ -384,9 +397,6 @@ Game* game_add(Game *G, Game *H) {
     if (!G) return H;
     if (!H) return G;
 
-    G = game_canonicalize(G);
-    H = game_canonicalize(H);
-
     if (G->L_count == 0 && G->R_count == 0) return H;
     if (H->L_count == 0 && H->R_count == 0) return G;
 
@@ -425,12 +435,8 @@ Game* game_add(Game *G, Game *H) {
     for (int i = 0; i < H->R_count; i++) right_opts[idx++] = game_add(G, H->right[i]);
 
     Game *sum = game_make(left_opts, new_l_count, right_opts, new_r_count);
-    if (sum == NULL) warning("Got NULL from canonicalize.\n");
-    printf("new_l_count = %d, new_r_count = %d, L=%zu, R=%zu, SUM=%p\n",
-        new_l_count, new_r_count, left_opts, right_opts, sum);
-    printf("1\n");
+    if (sum == NULL) warning("Got NULL from canonicalizing.\n");
     sum = game_canonicalize(sum);
-    printf("2\n");
 
     if (left_opts) free(left_opts);
     if (right_opts) free(right_opts);
@@ -449,7 +455,7 @@ Game* game_negate(Game *G) {
     if (G->R_count > 0) {
         new_left = malloc(sizeof(Game*) * G->R_count);
         if (!new_left) {
-            warning("Malloc failed.\n");
+            warning("Malloc failed in game_negate.\n");
             return NULL;
         }
     }
@@ -457,7 +463,7 @@ Game* game_negate(Game *G) {
         new_right = malloc(sizeof(Game*) * G->L_count);
         if (!new_right) {
             free(new_left);
-            warning("Malloc failed.\n");
+            warning("Malloc failed in game_negate.\n");
             return NULL; }
     }
 
@@ -476,24 +482,4 @@ Game* game_negate(Game *G) {
     free(new_left);
     free(new_right);
     return res;
-}
-
-
-/* ------------------------------------------------------------
-   Outcome
-   ------------------------------------------------------------ */
-void game_print_outcome(Game *G) {
-    Game *zero = game_zero();
-    int g_geq_0 = game_geq(G, zero);
-    int zero_geq_g = game_geq(zero, G);
-
-    if (g_geq_0 && !zero_geq_g) {
-        printf("Vysledek: G > 0 (Vyhrava Modry / Left)\n");
-    } else if (!g_geq_0 && zero_geq_g) {
-        printf("Vysledek: G < 0 (Vyhrava Cerveny / Right)\n");
-    } else if (g_geq_0 && zero_geq_g) {
-        printf("Vysledek: G = 0 (Vyhrava Druhy na tahu / Second)\n");
-    } else {
-        printf("Vysledek: G || 0 (Fuzzy pozice, vyhrava Prvni na tahu / First)\n");
-    }
 }

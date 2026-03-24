@@ -1,13 +1,14 @@
 /*
-
 caching game
-    {L1, L2, ... | R1, R2, ...}
+    ({L1, L2, ... | R1, R2, ...})
     ->
-    *G
+    (*G)
 
     používá se protože když vyrobíme v nějakém vypočtu stejnou hru,
     tak ať používáme pro stejnou strukturu jeden pointer a
     nemusíme mít ve výpočtech větší overhead.
+    Bez této cache nebude fungovat většina výpočtu, například
+    porovnávání hry pomocí pointeru.
 */
 
 #include <stdint.h>
@@ -17,10 +18,11 @@ caching game
 #include <assert.h>
 
 #include "error.h"
-
 #include "config.h"
+
 #include "game_intern_cache.h"
 
+// INTERN cache
 static size_t intern_memo_size = 0;
 static size_t intern_memo_mask = 0;
 size_t intern_items_count = 0;
@@ -38,6 +40,7 @@ static int cmp_game_ptr(const void *a, const void *b) {
 void game_intern_cache_prepare(Game *G) {
     if (G == NULL) error_exit(ERR_NULL_POINTER, "");
 
+    // {L1, L2 | R1, R2} = {L2, L1 | R2, R1}
     if (G->L_count > 1) qsort(G->left,  (size_t)G->L_count, sizeof(Game*), cmp_game_ptr);
     if (G->R_count > 1) qsort(G->right, (size_t)G->R_count, sizeof(Game*), cmp_game_ptr);
 }
@@ -77,13 +80,14 @@ static int node_equal(Game *A, Game *B) {
 }
 
 void game_intern_cache_init(size_t intern_size) {
-    if (intern_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize intern cache with zero size.\n");
+    if (intern_size == 0)
+        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize intern cache with size %zu.\n", intern_size);
 
     if (game_intern_cache == NULL) {
         intern_memo_size = intern_size;
         intern_memo_mask = intern_size - 1;
-        // Limit dáme na 85 %, protože vypnutí internu je fatální
-        intern_max_items = (size_t)(intern_size * 0.85);
+        // Limit dáme na 95 %, protože vypnutí internu je fatální
+        intern_max_items = (size_t)(intern_size * 0.95);
 
         game_intern_cache = (InternEntry *)calloc(intern_memo_size, sizeof(InternEntry));
         if (game_intern_cache == NULL) error_exit(ERR_MALLOC, "");
@@ -108,6 +112,16 @@ Game* game_intern_cache_get(Game *G) {
             game_intern_cache[j].node = G;
 
             intern_items_count++;
+
+            static int already_reported = 0;
+            if (intern_items_count >= intern_max_items) {
+                if (!already_reported) {
+                    warning("[FATAL] Intern cache full at %zu items.\n", intern_items_count);
+                    warning("        Calculations are now most likely wrong.\n");
+                    already_reported = 1;
+                }
+            }
+
             return G;
         }
 
@@ -116,6 +130,6 @@ Game* game_intern_cache_get(Game *G) {
         }
     }
 
-    /* game_intern_cacheulka plna, fallback */
+    // game_intern_cacheulka plna, fallback
     return G;
 }

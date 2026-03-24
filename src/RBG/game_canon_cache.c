@@ -1,3 +1,12 @@
+/*
+ * Final bachelors thesis
+ * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ *
+ * Faculty of Information Technology Brno University of Technology
+ * Author: Václav Matyáš (xmatyav00)
+ */
+
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -8,6 +17,7 @@
 #include "game_canon_cache.h"
 #include "config.h"
 
+// CANON cache
 static size_t canon_memo_size = 0;
 static size_t canon_memo_mask = 0;
 size_t canon_items_count = 0;
@@ -28,11 +38,12 @@ static uint32_t hash_ptr(uintptr_t p) {
 }
 
 void game_canon_cache_init(size_t canon_size) {
-    if (canon_size == 0) error_exit(ERR_SOLVE_WITH_0_MEM, "Trying to initialize canon cache with zero size.\n");
+    if (canon_size == 0)
+        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize canon cache with size %zu.\n", canon_size);
     if (game_canon_cache == NULL) {
         canon_memo_size = canon_size;
         canon_memo_mask = canon_size - 1;
-        canon_max_items = MAX_ITEMS(canon_size); // 75 % limit
+        canon_max_items = MAX_ITEMS(canon_size);
 
         game_canon_cache = (CanonEntry *)calloc(canon_memo_size, sizeof(CanonEntry));
         if (game_canon_cache == NULL) error_exit(ERR_MALLOC, "");
@@ -67,7 +78,7 @@ void game_canon_cache_put(Game *key, Game *value) {
     static int already_reported = 0;
     if (canon_items_count >= canon_max_items) {
         if (!already_reported) {
-            warning("Canon cache full at %zu items, no new elements.\n", canon_items_count);
+            warning("Canon cache full at %zu items, no new elements added.\n", canon_items_count);
             already_reported = 1;
         }
         return;

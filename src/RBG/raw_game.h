@@ -1,5 +1,5 @@
-#ifndef GAME_H
-#define GAME_H
+#ifndef RAW_GAME_H
+#define RAW_GAME_H
 
 #include <stdint.h>
 
@@ -8,7 +8,7 @@
 
 typedef unsigned __int128 edge_mask_t;
 
-// Bezpečný posun pro uint128
+// Posun pro uint128
 #define BIT(e) (((edge_mask_t)1) << (e))
 
 typedef enum {
@@ -29,19 +29,10 @@ typedef struct {
     Edge edges[MAX_EDGES];
 } BaseGraph;
 
-typedef struct {
-    edge_mask_t live_mask;      // bity hran
-    uint8_t  player_to_move; // 0 = modrý, 1 = červený
-} Position;
-
 void build_adjacency(const BaseGraph *g, edge_mask_t live_mask,
                             uint8_t *deg, uint8_t adj[][MAX_EDGES]);
 
 edge_mask_t cleanup_position(const BaseGraph *g, edge_mask_t live_mask);
 
-Position do_move(const BaseGraph *g, const Position *p, int edge_index);
 
-void print_position(const BaseGraph *g, const Position *p);
-
-
-#endif // GAME_H
+#endif // RAW_GAME_H

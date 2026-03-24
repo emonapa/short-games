@@ -1,5 +1,14 @@
-#ifndef CGT_H
-#define CGT_H
+/*
+ * Final bachelors thesis
+ * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ *
+ * Faculty of Information Technology Brno University of Technology
+ * Author: Václav Matyáš (xmatyav00)
+ */
+
+#ifndef SHORT_GAME_H
+#define SHORT_GAME_H
 
 #include <stdlib.h>
 
@@ -16,6 +25,9 @@ typedef struct Game {
     struct Game **right; // Pole pointerů na pravé možnosti
 } Game;
 
+void short_game_init(size_t free_ram_bytes, float memory_multiplier);
+void short_game_free(void);
+
 // Základní operace
 Game* game_make(Game **left, int L_count, Game **right, int R_count);
 
@@ -29,13 +41,8 @@ Game* game_canonicalize(Game *G);
 // Vypocita matematicky soucet dvou her G a H a vrati vysledek v kanonickem tvaru
 Game* game_add(Game *G, Game *H);
 
-// Pomocná funkce pro vypsání hry a určení vítěze
-void game_print_outcome(Game *G);
-
-void cgt_memo_init(size_t free_ram_bytes, float memory_multiplier);
-void cgt_memo_free(void);
 
 
 
 
-#endif // CGT_H
+#endif // SHORT_GAME_H

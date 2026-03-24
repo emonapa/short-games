@@ -55,7 +55,7 @@ class HistoryManager:
                     self.scene.vertex_pos[i].x(),
                     self.scene.vertex_pos[i].y(),
                     self.scene.is_ground[i],
-                    self.scene.vertex_items[i] is not None # NOVÉ: Uložíme informaci, zda vrchol ještě žije!
+                    self.scene.vertex_items[i] is not None # Uložíme informaci, zda vrchol ještě žije
                 )
                 for i in range(int(self.scene.g.num_vertices))
             ],
@@ -96,7 +96,10 @@ class HistoryManager:
 
     def undo(self):
         if not self.undo_stack: return False
-        self.redo_stack.append(self.get_current_state())
+        current_state = self.get_current_state()
+        # aby jsme po vraceni clear nesli dopredu do clear stavu
+        if current_state['edges']: # if is not empty
+            self.redo_stack.append(current_state) # append
         self.load_state(self.undo_stack.pop())
         return True
 

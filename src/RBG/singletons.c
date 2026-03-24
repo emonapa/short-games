@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "singletons.h"
-#include "cgt.h"
+#include "short_game.h"
 
 static Game *val_zero = NULL;
 static Game *val_star = NULL;
@@ -308,102 +308,6 @@ static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
 }
 
 
-// -----------------------------------------------------------------
-// Tisk
-// -----------------------------------------------------------------
-static void game_print_recursive(Game *G, enum output_format format) {
-    if (!G) return;
-
-    if (G == val_zero)      { printf("0"); return; }
-
-    if (format == FORMAT_FORMATED) {
-        double num_val;
-        if (get_dyadic_value(G, &num_val)) {
-            printf("%g", num_val);
-            return;
-        }
-
-        // zakladni cisla
-        if      (G == val_star) { printf("*"); return; }
-        else if (G == val_one)  { printf("1"); return; }
-        else if (G == val_up_star) { printf("↑*"); return; }
-        else if (G == val_down_star) { printf("↓*"); return; }
-
-        // násobky šipek
-        int up_arrows = get_up_arrow_multiple(G);
-        if (up_arrows > 0) {
-            if (up_arrows == 1) printf("↑");
-            else printf("%d↑", up_arrows);
-            return;
-        }
-
-        int down_arrows = get_down_arrow_multiple(G);
-        if (down_arrows > 0) {
-            if (down_arrows == 1) printf("↓");
-            else printf("%d↓", down_arrows);
-            return;
-        }
-
-        // nasobky nimberu (*)
-        int nimbers = get_nimber_value(G);
-        if (nimbers > 0) {
-            if (nimbers == 1) printf("*");
-            else printf("*%d", nimbers);
-            return;
-        }
-
-        // císlo + X šipek
-        double base_val;
-
-        int n_down = get_number_plus_down_arrows(G, &base_val);
-        if (n_down > 0) {
-            if (n_down == 1) printf("%g + ↓", base_val);
-            else printf("%g + %d↓", base_val, n_down);
-            return;
-        }
-
-        int n_up = get_number_plus_up_arrows(G, &base_val);
-        if (n_up > 0) {
-            if (n_up == 1) printf("%g + ↑", base_val);
-            else printf("%g + %d↑", base_val, n_up);
-            return;
-        }
-
-        // cislo + X nimberu
-        if (G->L_count == 1 && G->R_count == 1 && G->left[0] == G->right[0]) {
-            if(get_dyadic_value(G->left[0], &num_val)) {
-                printf("%g + *", num_val);
-                return;
-            }
-        }
-    }
-
-    // fallback
-    printf("{");
-    for (int i = 0; i < G->L_count; i++) {
-        game_print_recursive(G->left[i], format);
-        if (i < G->L_count - 1) printf(", ");
-    }
-
-    printf(" | ");
-    for (int i = 0; i < G->R_count; i++) {
-        game_print_recursive(G->right[i], format);
-        if (i < G->R_count - 1) printf(", ");
-    }
-    printf("}");
-
-}
-
-void game_print(Game *G, enum output_format format) {
-    if (!G) {
-        printf("NULL\n");
-        return;
-    }
-    game_print_recursive(G, format);
-    printf("\n");
-}
-
-
 
 static void buffer_append(const char *text) {
     size_t current_len = strlen(print_buffer);
@@ -510,18 +414,14 @@ const char* game_get_string(Game *G, enum output_format format) {
     return print_buffer;
 }
 
+/*
+    =======================
+     Funkce pro kalkulačku
+    =======================
+    */
 
-
-
-
-/* ================================================================
-   ADDITIONS — append this block to singletons.c
-   Also replace the existing game_get_string() at the bottom with
-   the new two-argument version below.
-   ================================================================ */
-
-/* -- make_int -------------------------------------------------------------- */
-/* Build integer n as a canonical Game*. */
+// -- make_int --------------------------------------------------------------
+// Build integer n as a canonical Game*.
 Game* make_int(int n) {
     if (n == 0) return game_zero();
 
@@ -537,17 +437,17 @@ Game* make_int(int n) {
 }
 
 
-/* -- make_dyadic ----------------------------------------------------------- */
-/* Build dyadic rational p/q.  q must be a positive power of 2.
-   Returns NULL on bad input. */
+// -- make_dyadic -----------------------------------------------------------
+// Build dyadic rational p/q.  q must be a positive power of 2.
+// Returns NULL on bad input.
 Game* make_dyadic(int p, int q) {
-    if (q <= 0 || (q & (q - 1)) != 0) return NULL;   /* q not power of 2 */
+    if (q <= 0 || (q & (q - 1)) != 0) return NULL;   // q not power of 2
     if (q == 1) return make_int(p);
 
-    /* Reduce when numerator is even */
+    // Reduce when numerator is even
     if (p % 2 == 0) return make_dyadic(p / 2, q / 2);
 
-    /* Odd numerator: { (p-1)/q | (p+1)/q } */
+    // Odd numerator: { (p-1)/q | (p+1)/q }
     Game *left  = make_dyadic(p - 1, q);
     Game *right = make_dyadic(p + 1, q);
     if (!left || !right) return NULL;
@@ -558,8 +458,8 @@ Game* make_dyadic(int p, int q) {
 }
 
 
-/* -- make_nimber ----------------------------------------------------------- */
-/* Build nimber *n.  *0 = 0, *1 = *, *2 = {0,* | 0,*}, etc. */
+// -- make_nimber -----------------------------------------------------------
+// Build nimber *n.  *0 = 0, *1 = *, *2 = {0,* | 0,*}, etc.
 Game* make_nimber(int n) {
     if (n < 0) return NULL;
     if (n == 0) return game_zero();
@@ -576,9 +476,9 @@ Game* make_nimber(int n) {
 }
 
 
-/* -- make_up_multiple ------------------------------------------------------ */
-/* Build n*↑, optionally adding * at the end.
-   n must be >= 1.  with_star: 0 or 1. */
+// -- make_up_multiple ------------------------------------------------------
+// Build n*↑, optionally adding * at the end.
+// n must be >= 1.  with_star: 0 or 1.
 Game* make_up_multiple(int n, int with_star) {
     if (n <= 0) return NULL;
 
@@ -592,7 +492,7 @@ Game* make_up_multiple(int n, int with_star) {
 }
 
 
-/* -- make_down_multiple ---------------------------------------------------- */
+// -- make_down_multiple ----------------------------------------------------
 Game* make_down_multiple(int n, int with_star) {
     if (n <= 0) return NULL;
 

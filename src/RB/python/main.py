@@ -54,7 +54,7 @@ class CDyadic(Structure):
 def load_hb_library() -> ctypes.CDLL:
     # default: build/libhb.so vedle Makefile
     here = os.path.abspath(os.path.dirname(__file__))
-    lib_path = os.path.join(here, "../../../build/", "libhb.so")
+    lib_path = os.path.join(here, "../../../build/RB/", "libhb.so")
     if not os.path.exists(lib_path):
         raise FileNotFoundError(
             f"Chybi {lib_path}. Udelej: make lib"
@@ -65,9 +65,9 @@ def load_hb_library() -> ctypes.CDLL:
     lib.solver_initialize.argtypes = [ctypes.POINTER(CBaseGraph)]
     lib.solver_initialize.restype = None
 
-    # Dyadic solver_exact_solve(const BaseGraph *g, uint64_t live_mask);
-    lib.solver_exact_solve.argtypes = [ctypes.POINTER(CBaseGraph), c_uint64]
-    lib.solver_exact_solve.restype = CDyadic
+    # Dyadic solve(const BaseGraph *g, uint64_t live_mask);
+    lib.solve.argtypes = [ctypes.POINTER(CBaseGraph), c_uint64]
+    lib.solve.restype = CDyadic
 
     return lib
 
@@ -460,7 +460,7 @@ class MainWindow(QMainWindow):
 
             # init + solve
             self.lib.solver_initialize(ctypes.byref(self.scene.g))
-            val = self.lib.solver_exact_solve(ctypes.byref(self.scene.g), c_uint64(live_mask))
+            val = self.lib.solve(ctypes.byref(self.scene.g), c_uint64(live_mask))
 
             # jako double
             d = float(val.num) / float(1 << val.exp) if val.exp >= 0 else float(val.num) * float(1 << (-val.exp))

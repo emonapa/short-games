@@ -32,16 +32,15 @@ static uint64_t hash_graph_state(const BaseGraph *g, edge_mask_t live_mask) {
 }
 
 void position_cache_init(size_t pos_size) {
+    if (pos_size <= 0)
+        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize position cache with size %zu.\n", pos_size);
     if (position_cache == NULL) {
         pos_memo_size = pos_size;
         pos_memo_mask = pos_size - 1;
         pos_max_items = MAX_ITEMS(pos_size);
 
         position_cache = (HashEntry *)calloc(pos_memo_size, sizeof(HashEntry));
-        if (position_cache == NULL) {
-            fprintf(stderr, "FATAL ERROR: Nedostatek pameti pro POSITION cache!\n");
-            exit(EXIT_FAILURE);
-        }
+        if (position_cache == NULL) error_exit(ERR_MALLOC, "");
     }
 }
 
@@ -51,9 +50,9 @@ void position_cache_free(void) {
 }
 
 int position_cache_get(const BaseGraph *g, edge_mask_t live_mask, Game **out_value) {
+    if (g == NULL) error_exit(ERR_NULL_POINTER, "");
     if (live_mask == 0) return 0;
 
-    assert(g != NULL);
     uint64_t h = hash_graph_state(g, live_mask);
     size_t idx = (size_t)(h & pos_memo_mask);
 

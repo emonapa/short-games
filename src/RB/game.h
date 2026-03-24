@@ -33,10 +33,4 @@ void build_adjacency(const BaseGraph *g, uint64_t live_mask,
 
 uint64_t cleanup_position(const BaseGraph *g, uint64_t live_mask);
 
-Position do_move(const BaseGraph *g, const Position *p, int edge_index);
-
-void print_position(const BaseGraph *g, const Position *p);
-
-void export_graph_svg(const BaseGraph *g, const Position *p, const char *filename);
-
 #endif // GAME_H
