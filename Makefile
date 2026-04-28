@@ -1,12 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c11 -Wno-unused -O3 
-LDFLAGS = -lm -lpthread -ldl -lrt -lX11 -O3
+LDFLAGS = -lm -ldl -lrt -lX11 -O3
 
 SRC_DIR = src
 BUILD_DIR = build
 
-RB_DIR = $(SRC_DIR)/RB
-RBG_DIR = $(SRC_DIR)/RBG
+RB_DIR = $(SRC_DIR)/RB/C
+RBG_DIR = $(SRC_DIR)/RBG/C
 
 RB_BUILD = $(BUILD_DIR)/RB
 RBG_BUILD = $(BUILD_DIR)/RBG

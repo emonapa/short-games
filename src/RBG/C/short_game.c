@@ -90,6 +90,9 @@ Game* game_make(Game **left, int L_count, Game **right, int R_count) {
     return g;
 }
 
+//#define GEQ_RECURSIVE
+
+#ifndef GEQ_RECURSIVE
 // Frame pro zasobnik
 typedef struct {
     Game *G;
@@ -98,8 +101,12 @@ typedef struct {
     int i;     // iterator pro cykly
 } GeqFrame;
 
+
 int game_geq(Game *G_root, Game *H_root) {
     if (G_root == NULL || H_root == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    uint8_t first_memo;
+    if (game_geq_cache_get(G_root, H_root, &first_memo)) return first_memo;
 
     TStack stack;
     stack_init(&stack, sizeof(GeqFrame));
@@ -110,10 +117,9 @@ int game_geq(Game *G_root, Game *H_root) {
     // last_ret funguje jako predavani navratove hodnoty od potomka rodici.
     // -1 znamena "zadna navratova hodnota neceka na zpracovani".
     int last_ret = -1;
-
+    size_t size_stack = 0;
     while (!IsEmpty(&stack)) {
         GeqFrame *f = (GeqFrame *)Top(&stack);
-
         // STAGE 0: Inicializace, kontrola base-cases a memoizace
         if (f->stage == 0) {
             if (f->G == f->H) {
@@ -131,9 +137,11 @@ int game_geq(Game *G_root, Game *H_root) {
 
             //TODO
             eq_count++;
-            if (eq_count % info_count == 0) {
+            if (eq_count % info_count == 0)
                 printf("[INFO] eq count %d.   *%d\n", (int)(eq_count/info_count), info_count);
-            }
+
+            if (stack.size > size_stack) size_stack = stack.size;
+
             f->stage = 1;
             f->i = 0;
             continue;
@@ -206,6 +214,63 @@ int game_geq(Game *G_root, Game *H_root) {
     stack_dtor(&stack);
     return last_ret;
 }
+#else
+int game_geq(Game *G, Game *H) {
+    if (G == NULL || H == NULL) {
+        error_exit(ERR_NULL_POINTER, "");
+    }
+
+    if (G == H) {
+        return 1;
+    }
+
+    uint8_t memo;
+    if (game_geq_cache_get(G, H, &memo)) {
+        return (int)memo;
+    }
+
+    ///
+     // První část definice:
+     // Pro každý pravý tah G^R musí platit:
+     //     !(H >= G^R)
+     //
+     // Pokud najdeme pravý tah G^R takový, že H >= G^R,
+     // potom G >= H neplatí.
+     ///
+    for (int i = 0; i < G->R_count; i++) {
+        Game *GR = G->right[i];
+
+        if (game_geq(H, GR)) {
+            game_geq_cache_put(G, H, 0);
+            return 0;
+        }
+    }
+
+    ///
+     // Druhá část definice:
+     // Pro každý levý tah H^L musí platit:
+     //     !(H^L >= G)
+     //
+     // Pokud najdeme levý tah H^L takový, že H^L >= G,
+     // potom G >= H neplatí.
+     ///
+    for (int i = 0; i < H->L_count; i++) {
+        Game *HL = H->left[i];
+
+        if (game_geq(HL, G)) {
+            game_geq_cache_put(G, H, 0);
+            return 0;
+        }
+    }
+
+    ///
+     // Pokud neexistuje žádný problémový pravý tah z G
+     // ani žádný problémový levý tah z H, pak G >= H.
+     ///
+    game_geq_cache_put(G, H, 1);
+    return 1;
+}
+#endif
 
 int game_eq(Game *G, Game *H) {
     return game_geq(G, H) && game_geq(H, G);
@@ -281,6 +346,9 @@ Game* game_canonicalize(Game *G) {
     cannon_count++;
 
     // 1) Kanonizuj potomky (zajistí, že GLR už jsou čisté intern pointery)
+    // Ok tohle teoreticky nemusime delat, protoze v klasickem solvu mame zaruceno,
+    //  ze kazda podhra je zkanonizovana, problem je napr v kalkulacce kde to
+    //  zaruceno neni.
     for (int i = 0; i < G->L_count; i++) G->left[i] = game_canonicalize(G->left[i]);
     for (int i = 0; i < G->R_count; i++) G->right[i] = game_canonicalize(G->right[i]);
 
@@ -435,8 +503,8 @@ Game* game_add(Game *G, Game *H) {
     for (int i = 0; i < H->R_count; i++) right_opts[idx++] = game_add(G, H->right[i]);
 
     Game *sum = game_make(left_opts, new_l_count, right_opts, new_r_count);
-    if (sum == NULL) warning("Got NULL from canonicalizing.\n");
     sum = game_canonicalize(sum);
+    if (sum == NULL) warning("Got NULL from canonization.\n");
 
     if (left_opts) free(left_opts);
     if (right_opts) free(right_opts);
@@ -482,4 +550,93 @@ Game* game_negate(Game *G) {
     free(new_left);
     free(new_right);
     return res;
+}
+
+/* ------------------------------------------------------------
+   Chlazení hry hvězdičkou: G_*
+   Definice:
+     G_* = G                         pokud G je číslo
+     G_* = { G*_L + * | G*_R + * }  jinak
+   ------------------------------------------------------------ */
+Game* cool_with_star(Game *G) {
+    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    if (is_number(G)) return G;
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+    Game *star = game_star();
+
+    if (G->L_count > 0) {
+        new_left = (Game**)malloc((size_t)G->L_count * sizeof(Game*));
+        if (new_left == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < G->L_count; i++)
+            new_left[i] = game_add(cool_with_star(G->left[i]), star);
+    }
+
+    if (G->R_count > 0) {
+        new_right = (Game**)malloc((size_t)G->R_count * sizeof(Game*));
+        if (new_right == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < G->R_count; i++)
+            new_right[i] = game_add(cool_with_star(G->right[i]), star);
+    }
+
+    Game *result = game_canonicalize(
+        game_make(new_left, G->L_count, new_right, G->R_count)
+    );
+
+    if (new_left)  free(new_left);
+    if (new_right) free(new_right);
+
+    return result;
+}
+
+
+/* ------------------------------------------------------------
+   *-projekce hry H: p(H)
+   Definice:
+     p(H) = x                       pokud H = x nebo H = x + *, kde x je číslo
+     p(H) = { p(H0^L) | p(H0^R) }  jinak  (H0 je kanonická forma H)
+   ------------------------------------------------------------ */
+Game* star_projection(Game *H) {
+    if (H == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    double val;
+
+    // H = x (dyadické číslo)
+    if (get_dyadic_value(H, &val))
+        return H;
+
+    // H = x + *
+    if (is_dyadic_plus_star(H, &val))
+        return game_add(H, game_star()); // x + * + * = x
+
+    // Obecný případ: { p(H^L) | p(H^R) } nad kanonickou formou
+    Game *H0 = game_canonicalize(H);
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+
+    if (H0->L_count > 0) {
+        new_left = (Game**)malloc((size_t)H0->L_count * sizeof(Game*));
+        if (new_left == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < H0->L_count; i++)
+            new_left[i] = star_projection(H0->left[i]);
+    }
+
+    if (H0->R_count > 0) {
+        new_right = (Game**)malloc((size_t)H0->R_count * sizeof(Game*));
+        if (new_right == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < H0->R_count; i++)
+            new_right[i] = star_projection(H0->right[i]);
+    }
+
+    Game *result = game_canonicalize(
+        game_make(new_left, H0->L_count, new_right, H0->R_count)
+    );
+
+    if (new_left)  free(new_left);
+    if (new_right) free(new_right);
+
+    return result;
 }

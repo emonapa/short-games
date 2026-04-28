@@ -13,6 +13,9 @@ from PySide6.QtWidgets import (
     QGraphicsDropShadowEffect,
 )
 
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QFont, QImage, QPainter
+from hb_education import EduBubble
+
 import hb_solver
 import hb_settings
 from hb_theme import THEME
@@ -75,8 +78,6 @@ class GraphScene(QGraphicsScene):
         self.fade_timer.timeout.connect(self._process_fades)
         self.fade_timer.start(25)
 
-        self.hints_active = False
-
         self.floating_hint = QGraphicsTextItem()
         self.floating_hint.setFont(QFont("Consolas", 18, QFont.Bold))
         self.floating_hint.setDefaultTextColor(QColor(self.theme.hint_text_color))
@@ -90,17 +91,37 @@ class GraphScene(QGraphicsScene):
         self.pending_hint_data = None
 
         self.edit_mode = False
+        self.hints_active = False
+        self.bot_playing_color = None
+
         self.on_build_color_changed = None
         self.trash_bin = []
 
+        self.ground_rect_item = None
+        self.ground_line_item = None
+
         self._draw_ground()
+
 
     def _draw_ground(self) -> None:
         ground_rect = QRectF(-10000, self.ground_y, 20000, 2000)
         self.addRect(ground_rect, QPen(Qt.NoPen), QBrush(self.theme.ground_q()))
         self.addLine(-10000, self.ground_y, 10000, self.ground_y,
                      QPen(self.theme.ground_line_q(), self.theme.ground_line_w))
-
+    """
+    def _draw_ground(self) -> None:
+        return
+        ground_rect = QRectF(-10000, self.ground_y, 20000, 2000)
+        self.ground_rect_item = self.addRect(
+            ground_rect,
+            QPen(Qt.NoPen),
+            QBrush(self.theme.ground_q())
+        )
+        self.ground_line_item = self.addLine(
+            -10000, self.ground_y, 10000, self.ground_y,
+            QPen(self.theme.ground_line_q(), self.theme.ground_line_w)
+        )
+    """
     def apply_theme(self, theme) -> None:
         self.theme = theme
         for e in self.edge_items:
@@ -333,6 +354,14 @@ class GraphScene(QGraphicsScene):
         if self.on_turn_changed:
             self.on_turn_changed()
 
+        # bot playing
+        if self.bot_playing_color is not None:
+            if self.player_to_move == self.bot_playing_color:
+                best_moves = self.get_best_moves()
+                if best_moves:
+                    self._execute_cut(best_moves[0])
+        # bot playing
+
         self.update_auras()
         if window and hasattr(window, 'edu_manager'):
             window.edu_manager.update_overlay()
@@ -552,6 +581,15 @@ class GraphScene(QGraphicsScene):
         self.update_auras()
         return self.hints_active
 
+    def toggle_bot(self):
+        if self.bot_playing_color is None:
+            if self.player_to_move == hb_solver.EDGE_BLUE:
+                self.bot_playing_color = hb_solver.EDGE_RED
+            elif self.player_to_move == hb_solver.EDGE_RED:
+                self.bot_playing_color = hb_solver.EDGE_BLUE
+        else:
+            self.bot_playing_color = None
+
     def get_best_moves(self):
         if not self.solver or self.g.num_edges == 0:
             return []
@@ -632,3 +670,207 @@ class GraphScene(QGraphicsScene):
         window = self.views()[0].window()
         if hasattr(window, 'edu_manager'):
             window.edu_manager.update_overlay()
+
+
+
+    def export_png(
+        self,
+        path: str,
+        margin: int = 24,
+        *,
+        fixedX: float | None = None,
+        fixedY: float | None = None,
+        finalX: int | None = None,
+        finalY: int | None = None,
+        include_bubbles: bool = False,
+    ) -> bool:
+        hidden_items = []
+        edu_manager = getattr(self, "edu_manager", None)
+        old_edu_active = None
+
+        try:
+            if include_bubbles and edu_manager is not None:
+                old_edu_active = edu_manager.active
+                if not edu_manager.active:
+                    edu_manager.active = True
+                edu_manager.update_overlay()
+
+            for item in (
+                self.ground_rect_item,
+                self.ground_line_item,
+                self.pending_marker,
+                self.floating_hint,
+                self.slash_item,
+            ):
+                if item is not None and item.isVisible():
+                    item.hide()
+                    hidden_items.append(item)
+
+            for item in list(self.active_slashes):
+                if item is not None and item.isVisible():
+                    item.hide()
+                    hidden_items.append(item)
+
+            if not include_bubbles:
+                for item in self.items():
+                    if isinstance(item, EduBubble) and item.isVisible():
+                        item.hide()
+                        hidden_items.append(item)
+
+            points = []
+            for i in range(int(self.g.num_vertices)):
+                if self.vertex_items[i] is not None:
+                    p = self.vertex_pos[i]
+                    points.append((p.x(), p.y()))
+
+            if not points:
+                min_x = 0.0
+                max_x = 64.0
+                min_y = self.ground_y - 64.0
+                max_y = self.ground_y
+            else:
+                min_x = min(x for x, _ in points)
+                max_x = max(x for x, _ in points)
+                min_y = min(y for _, y in points)
+                max_y = max(y for _, y in points)
+
+                if math.isclose(min_x, max_x):
+                    min_x -= 1.0
+                    max_x += 1.0
+                if math.isclose(min_y, max_y):
+                    min_y -= 1.0
+                    max_y += 1.0
+
+            if include_bubbles:
+                for item in self.items():
+                    if isinstance(item, EduBubble) and item.isVisible():
+                        r = item.sceneBoundingRect()
+                        min_x = min(min_x, r.left())
+                        max_x = max(max_x, r.right())
+                        min_y = min(min_y, r.top())
+                        max_y = max(max_y, r.bottom())
+
+            bottom_y = max(max_y, self.ground_y)
+
+            ground_band_h = 36.0
+
+            line_half = max(1.0, self.theme.ground_line_w * 0.5)
+            required_bottom = self.ground_y + ground_band_h + line_half
+
+            if fixedX is not None and fixedX <= 0:
+                raise ValueError("fixedX musi byt kladne")
+            if fixedY is not None and fixedY <= 0:
+                raise ValueError("fixedY musi byt kladne")
+            if finalX is not None and finalX <= 0:
+                raise ValueError("finalX musi byt kladne")
+            if finalY is not None and finalY <= 0:
+                raise ValueError("finalY musi byt kladne")
+
+            auto_left = min_x - margin
+            auto_top = min_y - margin
+            auto_width = (max_x - min_x) + 2 * margin
+            auto_height = (bottom_y - min_y) + 2 * margin
+
+            if fixedX is None and fixedY is None:
+                export_rect = QRectF(
+                    auto_left,
+                    auto_top,
+                    auto_width,
+                    auto_height,
+                )
+
+            elif fixedX is not None and fixedY is not None:
+                center_x = 0.5 * (min_x + max_x)
+                left_x = center_x - fixedX / 2.0
+
+                bottom = max(bottom_y, required_bottom)
+                top_y = bottom - fixedY
+
+                export_rect = QRectF(
+                    left_x,
+                    top_y,
+                    fixedX,
+                    fixedY,
+                )
+
+            elif fixedX is not None:
+                center_x = 0.5 * (min_x + max_x)
+                left_x = center_x - fixedX / 2.0
+
+                export_rect = QRectF(
+                    left_x,
+                    auto_top,
+                    fixedX,
+                    auto_height,
+                )
+
+            else:
+                bottom = max(bottom_y, required_bottom)
+                top_y = bottom - fixedY
+
+                export_rect = QRectF(
+                    auto_left,
+                    top_y,
+                    auto_width,
+                    fixedY,
+                )
+
+            width = max(1, int(math.ceil(export_rect.width())))
+            height = max(1, int(math.ceil(export_rect.height())))
+
+            image = QImage(width, height, QImage.Format_ARGB32)
+            image.fill(Qt.transparent)
+
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+            target = QRectF(0, 0, width, height)
+            self.render(painter, target, export_rect)
+
+            painter.end()
+
+            local_ground_y = self.ground_y - export_rect.top()
+
+            if finalX is not None or finalY is not None:
+                final_width = int(finalX) if finalX is not None else width
+                final_height = int(finalY) if finalY is not None else height
+
+                scale_y = final_height / height
+
+                image = image.scaled(
+                    final_width,
+                    final_height,
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+
+                width = final_width
+                height = final_height
+                local_ground_y *= scale_y
+
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+
+            painter.fillRect(
+                QRectF(0, local_ground_y, width, ground_band_h),
+                QBrush(self.theme.ground_q())
+            )
+            painter.setPen(QPen(self.theme.ground_line_q(), self.theme.ground_line_w))
+            painter.drawLine(QPointF(0, local_ground_y), QPointF(width, local_ground_y))
+
+            painter.end()
+
+            return image.save(path, "PNG")
+
+        finally:
+            for item in hidden_items:
+                item.show()
+
+            if include_bubbles and edu_manager is not None:
+                if old_edu_active is not None:
+                    edu_manager.active = old_edu_active
+                edu_manager.update_overlay()

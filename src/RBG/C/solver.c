@@ -54,11 +54,41 @@ typedef struct {
     Game *result;         // hotova hodnota pro tuto pozici
 } SolverFrame;
 
-
-// Iterativni vypocet hodnoty pozice
+/*
 Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
     if (g == NULL) error_exit(ERR_NULL_POINTER, "");
-    g_global = g;
+
+    // Memoizace
+    Game *memo = NULL;
+    if (position_cache_get(g, live_mask, &memo))
+        return memo;
+
+    Game *left_opts[MAX_EDGES];
+    Game *right_opts[MAX_EDGES];
+    int l_count = 0, r_count = 0;
+
+    // Rekurzivní průchod všemi tahy
+    for (int e = 0; e < g->num_edges; ++e) {
+        if (!(live_mask & BIT(e))) continue;
+
+        EdgeColor c = g->edges[e].color;
+        edge_mask_t child_mask = cleanup_position(g, live_mask & ~BIT(e));
+
+        Game *child = solve_component(g, child_mask);
+
+        if (c == EDGE_BLUE  || c == EDGE_GREEN) left_opts[l_count++]  = child;
+        if (c == EDGE_RED   || c == EDGE_GREEN) right_opts[r_count++] = child;
+    }
+
+    Game *G = game_canonicalize(game_make(left_opts, l_count, right_opts, r_count));
+    position_cache_insert(g, live_mask, G);
+    return G;
+}
+*/
+// Iterativni vypocet hodnoty pozice
+
+Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
+    if (g == NULL) error_exit(ERR_NULL_POINTER, "");
 
     TStack stack;
     stack_init(&stack, sizeof(SolverFrame));
@@ -71,6 +101,7 @@ Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
     Push(&stack, &root);
 
     while (!IsEmpty(&stack)) {
+
         SolverFrame *f = (SolverFrame *)Top(&stack);
 
         // STAGE 0: init, memo, base cases
@@ -122,6 +153,9 @@ Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
                 Game *G = game_make(f->left_opts, f->l_count, f->right_opts, f->r_count);
 
                 G = game_canonicalize(G);
+                uint64_t lower = (f->live_mask << 64) >> 64;
+                uint64_t higher = f->live_mask >> 64;
+                //printf("C maska pri insertu do cache: %zu%zu\n", higher, lower);
                 position_cache_insert(g, f->live_mask, G);
                 f->result = G;
                 f->stage = 2;
@@ -156,6 +190,7 @@ Game* solve_component(const BaseGraph *g, edge_mask_t live_mask) {
     stack_dtor(&stack);
     return game_zero();
 }
+
 
 // Pomocna funkce: Vrati pocet nalezenych nezavislych komponent a vyplni pole sub_masks
 static int get_independent_components(const BaseGraph *g, edge_mask_t live_mask, edge_mask_t *sub_masks) {
@@ -224,25 +259,25 @@ static int get_independent_components(const BaseGraph *g, edge_mask_t live_mask,
 }
 
 static void print_stats() {
-    printf("[CACHE] canon_count = %ld\n", canon_items_count);
-    printf("[CACHE] intern_count = %ld\n", intern_items_count);
-    printf("[CACHE] add_count = %ld\n", add_items_count);
-    printf("[CACHE] geq_count = %ld\n", geq_items_count);
+    printf("[CACHE] canon_count     = %ld\n", canon_items_count);
+    printf("[CACHE] intern_count    = %ld\n", intern_items_count);
+    printf("[CACHE] add_count       = %ld\n", add_items_count);
+    printf("[CACHE] geq_count       = %ld\n", geq_items_count);
     printf("[CACHE] pos_items_count = %ld\n", pos_items_count);
-    printf("[META] stack_count = %ld\n", stack_items_count);
-    printf("[META] make_count = %d\n", make_count);
+    printf("[META] stack_count      = %ld\n", stack_items_count);
+    printf("[META] make_count       = %d\n", make_count);
 }
 
 //#define PRINT_RESULT
 
 Game* solve(const BaseGraph *g, edge_mask_t live_mask) {
+    g_global = g;
     if (live_mask == 0) return game_zero();
 
     edge_mask_t sub_masks[MAX_EDGES];
     int count = get_independent_components(g, live_mask, sub_masks);
 
     Game *total_sum = game_zero();
-    print_stats();
 
 
 #ifdef PRINT_RESULT
@@ -257,8 +292,9 @@ Game* solve(const BaseGraph *g, edge_mask_t live_mask) {
        print_stats();
 #endif
         // Grafy se budou pravdepodobne lisit, takze cache resetneme
-        solver_free();
-        solver_initialize(g_memory_multiplier);
+        // Ale hinty a edu mode budou EXTREMNE pomale, achjo...
+        //solver_free();
+        //solver_initialize(g_memory_multiplier);
     }
 #ifdef PRINT_RESULT
     printf("=========================================================\n");
@@ -268,7 +304,7 @@ Game* solve(const BaseGraph *g, edge_mask_t live_mask) {
 
 #ifdef PRINT_RESULT
     const char *game_string = game_get_string(total_sum, FORMAT_FORMATED);
-    printf("%s", game_string);
+    printf("Result: %s", game_string);
 #endif
 
     return total_sum;

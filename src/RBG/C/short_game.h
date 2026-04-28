@@ -41,6 +41,9 @@ Game* game_canonicalize(Game *G);
 // Vypocita matematicky soucet dvou her G a H a vrati vysledek v kanonickem tvaru
 Game* game_add(Game *G, Game *H);
 
+Game* game_negate(Game *G);
+Game* cool_with_star(Game *G);
+Game* star_projection(Game *H);
 
 
 

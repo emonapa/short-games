@@ -248,10 +248,10 @@ class CalculatorPanel(QWidget):
         layout.addWidget(sec1)
         layout.addSpacing(14)
 
-        # Game A <-> Game B
+        # Game A -> Game B
         row1 = QHBoxLayout()
         self.unary_input = _input("Game G")
-        self.unary_op    = _combo(["−G  (negace)", "Canonization"])
+        self.unary_op    = _combo(["−G  (negace)", "Canonization", "Reduced canonical form"])
         calc1_btn        = _btn("=")
         row1.addWidget(self.unary_input, 3)
         row1.addWidget(self.unary_op, 2)
@@ -284,7 +284,7 @@ class CalculatorPanel(QWidget):
         layout.addWidget(sec2)
         layout.addSpacing(14)
 
-        # Game A <-> Game B
+        # (Game, Game B) -> Game C
         row2 = QHBoxLayout()
         self.bin_left  = _input("Game A")
         self.bin_op    = _combo(["+", "-", "≥", "≤", ">", "<", "=", "||"])
@@ -353,10 +353,13 @@ class CalculatorPanel(QWidget):
         try:
             s = self._solver()
             g = GameParser(s).parse(self.unary_input.text())
-            if self.unary_op.currentIndex() == 0:
+            if self.unary_op.currentIndex() == 0: # negace
                 result = s.game_negate(g)
-            else:
+            elif self.unary_op.currentIndex() == 1: # kanonizace
                 result = s.game_canonicalize(g)
+            elif self.unary_op.currentIndex() == 2: # reduced canonical form
+                result_cooling = s.cool_with_star(g)
+                result = s.star_projection(result_cooling)
             self.unary_result.setText(self._str(result, self.unary_raw))
         except Exception as e:
             self.unary_result.setText(f"Error: {e}")
@@ -375,10 +378,10 @@ class CalculatorPanel(QWidget):
                 result = s.game_canonicalize(s.game_add(a_canon, b_canon))
                 self.bin_result.setText(self._str(result, self.bin_raw))
 
-            if op == "-":
+            elif op == "-":
                 a_canon = s.game_canonicalize(a)
                 b_canon = s.game_canonicalize(b)
-                b_canon_negative = s.game_negate(b)
+                b_canon_negative = s.game_negate(b_canon)
                 result = s.game_canonicalize(s.game_add(a_canon, b_canon_negative))
                 self.bin_result.setText(self._str(result, self.bin_raw))
 

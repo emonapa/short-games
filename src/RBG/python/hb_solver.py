@@ -56,17 +56,21 @@ CGame._fields_ = [
 class HBSolver:
     def __init__(self, lib_path="../../../build/RBG/libhb.so"):
         if not os.path.exists(lib_path):
-            alt_path = "./libhb.so"
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            alt_path = os.path.join(base_dir, "libhb.so")
+
             if os.path.exists(alt_path):
                 lib_path = alt_path
             else:
-                raise FileNotFoundError(f"Knihovna nenalezena: {lib_path}")
+                raise FileNotFoundError(
+                    f"Knihovna nenalezena: {lib_path} ani {alt_path}"
+                )
 
         self.lib = ctypes.CDLL(lib_path)
         self.memory_multiplier = 0.5
 
         # Mapování C funkcí
-        self.lib.solver_initialize.argtypes = []
+        self.lib.solver_initialize.argtypes = [c_float]
         self.lib.solver_initialize.restype = None
 
         self.lib.solve.argtypes = [POINTER(CBaseGraph), c_uint128]
@@ -103,6 +107,12 @@ class HBSolver:
         self.lib.game_negate.argtypes = [POINTER(CGame)]
         self.lib.game_negate.restype = POINTER(CGame)
 
+        self.lib.cool_with_star.argtypes = [POINTER(CGame)]
+        self.lib.cool_with_star.restype = POINTER(CGame)
+
+        self.lib.star_projection.argtypes = [POINTER(CGame)]
+        self.lib.star_projection.restype = POINTER(CGame)
+
         self.lib.make_int.argtypes = [c_int]
         self.lib.make_int.restype  = POINTER(CGame)
 
@@ -127,6 +137,14 @@ class HBSolver:
         self.lib.game_down.argtypes = []
         self.lib.game_down.restype  = POINTER(CGame)
         # calculator helpery
+
+        # analyza helper
+        self.lib.position_cache_get.argtypes = [
+            POINTER(CBaseGraph),
+            c_uint128,
+            POINTER(POINTER(CGame)),
+        ]
+        self.lib.position_cache_get.restype = c_int
 
     # wrappery
     def initialize(self):
@@ -174,6 +192,12 @@ class HBSolver:
     def game_negate(self, ptr):
         return self.lib.game_negate(ptr)
 
+    def cool_with_star(self, ptr):
+        return self.lib.cool_with_star(ptr)
+
+    def star_projection(self, ptr):
+        return self.lib.star_projection(ptr)
+
     # calculator helpery
     def game_star(self):
         return self.lib.game_star()
@@ -200,3 +224,11 @@ class HBSolver:
     def make_down_multiple(self, n: int, with_star: int):
         return self.lib.make_down_multiple(n, with_star)
     # calculator helpery
+
+
+    def position_cache_lookup(self, graph: CBaseGraph, live_mask: int):
+        """Returns Game* from position cache, or None if not found."""
+        out = POINTER(CGame)()
+        mask_128 = int_to_uint128(live_mask)
+        found = self.lib.position_cache_get(ctypes.byref(graph), mask_128, ctypes.byref(out))
+        return out if found else None

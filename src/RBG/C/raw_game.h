@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define MAX_VERTICES  129
-#define MAX_EDGES     128
+#define MAX_VERTICES  128
+#define MAX_EDGES     256
 
 typedef unsigned __int128 edge_mask_t;
 

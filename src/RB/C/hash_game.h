@@ -2,8 +2,8 @@
 #define HASH_GAME_H
 
 #include <stdint.h>
-#include "game.h"
-#include "solver.h"
+#include "raw_game.h"
+#include "surreals.h"
 #include "dyadic.h"
 
 typedef struct {

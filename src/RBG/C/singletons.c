@@ -148,20 +148,24 @@ static int get_nimber_value(Game *G) {
 // Pomocné funkce
 // -----------------------------------------------------------------
 // Vrací 1, pokud je kanonická hra dyadické/celé číslo
-static int is_number(Game *G) {
+int is_number(Game *G) {
     if (!G) return 0;
-    if (G->L_count == 0 && G->R_count == 0) return 1; // 0 je číslo
-    if (G->L_count > 1 || G->R_count > 1) return 0;   // Jakmile je tahů víc, není to číslo
+    if (G->L_count == 0 && G->R_count == 0) return 1;
+    if (G->L_count > 1 || G->R_count > 1) return 0;
 
-    // Potomci musí být taky čísla
     if (G->L_count == 1 && !is_number(G->left[0])) return 0;
     if (G->R_count == 1 && !is_number(G->right[0])) return 0;
+
+    // Číselná podmínka: žádné GL >= GR
+    // Bez tohoto je např. * = {0|0} považován za číslo (0 >= 0 platí, tedy * číslo není)
+    if (G->L_count == 1 && G->R_count == 1)
+        if (game_geq(G->left[0], G->right[0])) return 0;
 
     return 1;
 }
 
 // Vrací 1, pokud je hra číslo, a uloží jeho hodnotu do *out_val
-static int get_dyadic_value(Game *G, double *out_val) {
+int get_dyadic_value(Game *G, double *out_val) {
     if (!G) return 0;
 
     // base case
@@ -211,7 +215,7 @@ static int get_dyadic_value(Game *G, double *out_val) {
 
 
 // Je hra přesně base + * ? (Tedy {base | base})
-static int is_base_plus_star(Game *G, Game *base) {
+int is_base_plus_star(Game *G, Game *base) {
     if (!G || !base) return 0;
     return (G->L_count == 1 && G->R_count == 1 &&
             G->left[0] == base && G->right[0] == base);
@@ -308,6 +312,12 @@ static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
 }
 
 
+int is_dyadic_plus_star(Game *G, double *out_dyadic_val) {
+    if (G->L_count == 1 && G->R_count == 1 && G->left[0] == G->right[0]) {
+        if(get_dyadic_value(G->left[0], out_dyadic_val)) return 1;
+    }
+    return 0;
+}
 
 static void buffer_append(const char *text) {
     size_t current_len = strlen(print_buffer);
@@ -382,7 +392,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
             return;
         }
 
-        // cislo + X nimberu
+        // dyadic + *
         if (G->L_count == 1 && G->R_count == 1 && G->left[0] == G->right[0]) {
             if(get_dyadic_value(G->left[0], &num_val)) {
                 snprintf(temp, sizeof(temp), "%g + *", num_val);
@@ -441,19 +451,23 @@ Game* make_int(int n) {
 // Build dyadic rational p/q.  q must be a positive power of 2.
 // Returns NULL on bad input.
 Game* make_dyadic(int p, int q) {
-    if (q <= 0 || (q & (q - 1)) != 0) return NULL;   // q not power of 2
+    if (q <= 0 || (q & (q - 1)) != 0) return NULL;
     if (q == 1) return make_int(p);
 
-    // Reduce when numerator is even
-    if (p % 2 == 0) return make_dyadic(p / 2, q / 2);
+    // redukce
+    if ((p & 1) == 0) return make_dyadic(p / 2, q / 2);
 
-    // Odd numerator: { (p-1)/q | (p+1)/q }
-    Game *left  = make_dyadic(p - 1, q);
-    Game *right = make_dyadic(p + 1, q);
+    // Conway tvar
+    int half_q = q / 2;
+    int k = (p - 1) / 2;
+
+    Game *left  = make_dyadic(k,     half_q);
+    Game *right = make_dyadic(k + 1, half_q);
     if (!left || !right) return NULL;
 
-    Game *l_arr[] = { left  };
+    Game *l_arr[] = { left };
     Game *r_arr[] = { right };
+
     return game_canonicalize(game_make(l_arr, 1, r_arr, 1));
 }
 
@@ -486,7 +500,7 @@ Game* make_up_multiple(int n, int with_star) {
     Game *result = base;
 
     for (int i = 1; i < n; i++) result = game_add(result, base);
-    if (with_star)               result = game_add(result, game_star());
+    if (with_star)              result = game_add(result, game_star());
 
     return result;
 }

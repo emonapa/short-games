@@ -12,20 +12,34 @@ class SavedGraph:
 
 
 def serialize_scene(scene) -> Dict[str, Any]:
-    n = int(scene.g.num_vertices)
+    alive = [i for i in range(int(scene.g.num_vertices)) if scene.vertex_items[i] is not None]
 
-    vertices = [(scene.vertex_pos[i].x(), scene.vertex_pos[i].y()) for i in range(n)]
+    old_to_new = {old_i: new_i for new_i, old_i in enumerate(alive)}
+
+    vertices = [
+        (scene.vertex_pos[i].x(), scene.vertex_pos[i].y())
+        for i in alive
+    ]
+
     edges = []
-
     for e_obj in scene.edge_items:
-        edges.append((int(e_obj.u), int(e_obj.v), int(e_obj.color)))
+        if e_obj.u in old_to_new and e_obj.v in old_to_new:
+            edges.append((
+                old_to_new[int(e_obj.u)],
+                old_to_new[int(e_obj.v)],
+                int(e_obj.color),
+            ))
+
+    pending_u = None
+    if scene.pending_u is not None and scene.pending_u in old_to_new:
+        pending_u = old_to_new[int(scene.pending_u)]
 
     data: Dict[str, Any] = {
         "version": 1,
         "vertices": vertices,
         "edges": edges,
         "current_color": int(scene.current_color),
-        "pending_u": None if scene.pending_u is None else int(scene.pending_u),
+        "pending_u": pending_u,
     }
     return data
 
@@ -91,3 +105,29 @@ def load_from_file(scene, path: str) -> None:
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     deserialize_scene(scene, data)
+
+
+def load_and_export_png(
+    scene,
+    input_path: str,
+    output_path: str,
+    margin: int = 24,
+    *,
+    fixedX=None,
+    fixedY=None,
+    finalX=None,
+    finalY=None,
+    include_bubbles: bool = False,
+) -> None:
+    load_from_file(scene, input_path)
+    ok = scene.export_png(
+        output_path,
+        margin=margin,
+        fixedX=fixedX,
+        fixedY=fixedY,
+        finalX=finalX,
+        finalY=finalY,
+        include_bubbles=include_bubbles,
+    )
+    if not ok:
+        raise RuntimeError(f"Failed to save PNG: {output_path}")

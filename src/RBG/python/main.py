@@ -49,10 +49,10 @@ class MainWindow(QMainWindow):
         self.scene.on_turn_changed = self._update_player_button
         self.scene.on_build_color_changed = self._update_color_button_ui
 
-
         # education
         self.history = hb_education.HistoryManager(self.scene)
         self.edu_manager = hb_education.EducationManager(self.scene)
+        self.scene.edu_manager = self.edu_manager # pro vytvareni PNG dirty trik
 
         self.view = QGraphicsView(self.scene)
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
 
         THEME.changed.connect(self._on_theme_changed)
 
-    # ── Settings ──────────────────────────────────────────────────────────────
+    # -- Settings --------------------------------------------------------------
 
     def open_settings(self) -> None:
         if self.stack.currentIndex() == 1:
@@ -233,7 +233,7 @@ class MainWindow(QMainWindow):
         memory_multiplier = self._cfg.get("performance", 0.5)
         if memory_multiplier != self.solver.memory_multiplier:
             self.solver.memory_multiplier = memory_multiplier
-            self.free_all()
+            self.solver.free_all()
             self.solver.initialize()
 
         self.stack.setCurrentIndex(0)
@@ -244,7 +244,7 @@ class MainWindow(QMainWindow):
             "QPushButton:hover {{ background-color: #3a3a3a; color: white; }}"
         ).format(THEME.theme.icon_settings_font_size))
 
-    # ── Theme ─────────────────────────────────────────────────────────────────
+    # -- Theme -----------------------------------------------------------------
 
     def _on_theme_changed(self, theme) -> None:
         self.setStyleSheet(theme.stylesheet())
@@ -252,14 +252,12 @@ class MainWindow(QMainWindow):
         self.scene.apply_theme(theme)
         self._update_player_button()
         self._update_color_button_ui(self.scene.current_color)
-        self.hint_btn.setStyleSheet(theme.hint_btn_style(self.scene.hints_active))
-        self.edu_btn.setStyleSheet(theme.edu_btn_style(self.edu_manager.active))
         self.edit_btn.setStyleSheet(theme.edit_btn_style(self.scene.edit_mode))
 
     def closeEvent(self, event):
         if self.solver:
             self.solver.free_all()
-            print("C-Solver memory now freed")
+            #print("C-Solver memory now freed")
         event.accept()
 
     def _update_player_button(self) -> None:
@@ -314,6 +312,7 @@ class MainWindow(QMainWindow):
                 self._solver_worker.result_ptr, 1
             )
         self._solver_worker = None
+        self.edu_manager.update_overlay()
 
     def save_game(self) -> None:
         path, _ = QFileDialog.getSaveFileName(self, "Save Hackenbush", "", "Hackenbush (*.hbg.json);;JSON (*.json);;All Files (*)")
@@ -356,9 +355,6 @@ class MainWindow(QMainWindow):
         self.scene.set_current_color(new_color)
         self._update_color_button_ui(new_color)
 
-    def toggle_edu_mode(self):
-        self.edu_manager.toggle()
-
     def step_backward(self):
         self.scene.hide_hint()
         self.history.undo()
@@ -392,18 +388,13 @@ class MainWindow(QMainWindow):
         edu_widget = QPushButton("Analyse position")
         edu_widget.setFlat(True)
         edu_widget.setStyleSheet(f"""
-            QPushButton {{
-                text-align: left;
-                padding: 8px 20px;
-                border: none;
-                color: white;
+            QPushButton {{ text-align: left; padding: 8px 20px; border: none; color: white;
                 background: {'#2d5a2d' if self.edu_manager.active else '#2a2a2a'};
             }}
-            QPushButton:hover {{
-                background: {'#3a6f3a' if self.edu_manager.active else '#444'};
+            QPushButton:hover {{ background: {'#3a6f3a' if self.edu_manager.active else '#444'};
             }}
         """)
-        edu_widget.clicked.connect(lambda: (self.toggle_edu_mode(), menu.close()))
+        edu_widget.clicked.connect(lambda: (self.edu_manager.toggle(), menu.close()))
 
         edu_action = QWidgetAction(menu)
         edu_action.setDefaultWidget(edu_widget)
@@ -414,15 +405,10 @@ class MainWindow(QMainWindow):
         hints_widget = QPushButton("Show hints")
         hints_widget.setFlat(True)
         hints_widget.setStyleSheet(f"""
-            QPushButton {{
-                text-align: left;
-                padding: 8px 20px;
-                border: none;
-                color: white;
+            QPushButton {{ text-align: left; padding: 8px 20px; border: none; color: white;
                 background: {'#2d5a2d' if self.scene.hints_active else '#2a2a2a'};
             }}
-            QPushButton:hover {{
-                background: {'#3a6f3a' if self.scene.hints_active else '#444'};
+            QPushButton:hover {{ background: {'#3a6f3a' if self.scene.hints_active else '#444'};
             }}
         """)
         hints_widget.clicked.connect(lambda: (self.scene.toggle_hints(), menu.close()))
@@ -432,6 +418,23 @@ class MainWindow(QMainWindow):
         menu.addAction(hints_action)
         # hints toggle
 
+
+        # bot toggle
+        bot_widget = QPushButton("Play against bot")
+        bot_widget.setFlat(True)
+        bot_widget.setStyleSheet(f"""
+            QPushButton {{ text-align: left; padding: 8px 20px; border: none; color: white;
+                background: {'#2d5a2d' if (self.scene.bot_playing_color is not None) else '#2a2a2a'};
+            }}
+            QPushButton:hover {{ background: {'#3a6f3a' if (self.scene.bot_playing_color is not None) else '#444'};
+            }}
+        """)
+        bot_widget.clicked.connect(lambda: (self.scene.toggle_bot(), menu.close()))
+
+        bot_action = QWidgetAction(menu)
+        bot_action.setDefaultWidget(bot_widget)
+        menu.addAction(bot_action)
+        # bot toggle
 
         menu.addAction("Calculator", self.open_calculator)
         menu.addAction("Settings", self.open_settings)

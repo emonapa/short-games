@@ -11,12 +11,17 @@ class EduBubble(QGraphicsItem):
         self.is_reversible = is_reversible
         self.setZValue(50.0)
 
-        font = QFont("Consolas", 9, QFont.Bold)
+        #self.font_size = 9
+        self.font_size = 29
+
+        font = QFont("Consolas", self.font_size, QFont.Bold)
         metrics = QFontMetrics(font)
         text_width = metrics.horizontalAdvance(self.text)
 
-        self.rect_height = 20
-        self.rect_width = max(36, text_width + 16) # Minimálně kulaté
+        #self.rect_height = 20
+        self.rect_height = 90
+        #self.rect_width = max(36, text_width + 16) # Minimálně kulaté
+        self.rect_width = 1.5*text_width + 90 # Minimálně kulaté
 
         self.offset_x = -self.rect_width / 2
         self.offset_y = -self.rect_height / 2
@@ -35,7 +40,7 @@ class EduBubble(QGraphicsItem):
         rect = self.boundingRect()
         painter.drawRoundedRect(rect, self.rect_height / 2, self.rect_height / 2) # Tvar pilulky/kolečka
 
-        font = QFont("Consolas", 9, QFont.Bold)
+        font = QFont("Consolas", self.font_size, QFont.Bold)
         painter.setFont(font)
         painter.setPen(QPen(text_color))
         painter.drawText(rect, Qt.AlignCenter, self.text)
@@ -130,6 +135,7 @@ class EducationManager:
                 pass
         self.bubbles.clear()
 
+
     def update_overlay(self):
         self.clear_bubbles()
         if not self.active or self.scene.edit_mode or self.scene.g.num_edges == 0:
@@ -140,7 +146,6 @@ class EducationManager:
         live_mask = self.scene.compute_live_mask_all_edges()
         is_left = (self.scene.player_to_move == hb_solver.EDGE_BLUE)
 
-        solver.initialize()
         root_game = solver.solve(g, live_mask)
 
         valid_moves = []
@@ -154,6 +159,7 @@ class EducationManager:
             mask_after_i = solver.cleanup_position(g, temp_mask)
 
             g_i = solver.solve(g, mask_after_i)
+            #g_i = cached_solve(mask_after_i)
             move_data[idx] = { 'g_i': g_i, 'mask': mask_after_i, 'type': 'normal', 'ref_idx': None }
 
         # 1. REVERZIBILNÍ TAHY (Hledáme tu absolutně NEJHORŠÍ odpověď protihráče)
@@ -173,6 +179,9 @@ class EducationManager:
                     mask_after_j = solver.cleanup_position(g, temp_mask_j)
 
                     g_ij = solver.solve(g, mask_after_j)
+                    #g_ij = cached_solve(mask_after_j)
+                    if g_ij is None:
+                        print("CACHE MISS?????????????")
                     if not g_ij: continue
 
                     is_rev = False

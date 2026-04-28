@@ -2,6 +2,7 @@ build/
 libs/
 venv/
 __pycache__/
+dist/
 
 TAGS
 

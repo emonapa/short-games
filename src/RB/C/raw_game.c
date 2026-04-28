@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "game.h"
+#include "raw_game.h"
 
 // Pomocná funkce pro adjacency list
 void build_adjacency(const BaseGraph *g, uint64_t live_mask,

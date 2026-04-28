@@ -1,5 +1,5 @@
-#ifndef GAME_H
-#define GAME_H
+#ifndef RAW_GAME_H
+#define RAW_GAME_H
 
 #include <stdint.h>
 
@@ -33,4 +33,4 @@ void build_adjacency(const BaseGraph *g, uint64_t live_mask,
 
 uint64_t cleanup_position(const BaseGraph *g, uint64_t live_mask);
 
-#endif // GAME_H
+#endif // RAW_GAME_H

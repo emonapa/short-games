@@ -1,5 +1,7 @@
 from PySide6.QtCore import Qt, QPointF, QTimer, QRectF, QSize, QThread, Signal as QtSignal
 
+import time
+
 import hb_solver
 
 class SolverWorker(QThread):
@@ -13,8 +15,11 @@ class SolverWorker(QThread):
         self.result_ptr = None
 
     def run(self):
+        start_time = time.perf_counter()
         try:
             val = self.solver.solve(self.g, self.live_mask)
+            elapsed = time.perf_counter() - start_time
+
             if not val:
                 self.result_ready.emit("Value: Null pointer returned")
                 return
@@ -31,6 +36,10 @@ class SolverWorker(QThread):
                 res_str = " 1. hráč/First (G || 0)"
 
             self.result_ptr = val
+            print(f"[Solver] Done in {elapsed:.3f} s - {res_str.strip()}", flush=True)
+
             self.result_ready.emit(f"Wins: {res_str}")
         except Exception as e:
+            elapsed = time.perf_counter() - start_time
+            print(f"[Solver] Error after {elapsed:.3f} s: {e}", flush=True)
             self.result_ready.emit(f"Error ({e})")

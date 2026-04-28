@@ -31,4 +31,8 @@ Game*  make_down_multiple(int n, int with_star);
 /* ── Output ───────────────────────────────────────────────────────────────── */
 const char* game_get_string(Game *G, enum output_format format);
 
+int is_number(Game *G);
+int is_dyadic_plus_star(Game *G, double *out_dyadic_val);
+int get_dyadic_value(Game *G, double *out_val);
+
 #endif /* SINGLETONS_H */
