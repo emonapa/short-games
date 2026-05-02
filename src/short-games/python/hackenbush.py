@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidgetAction,
     QFileDialog,
     QMenu,
+    QMessageBox,
 )
 
 import hb_solver
@@ -437,6 +438,7 @@ class MainWindow(QMainWindow):
         # bot toggle
 
         menu.addAction("Calculator", self.open_calculator)
+        menu.addAction("Help", self.open_help)
         menu.addAction("Settings", self.open_settings)
 
         menu.exec(self.menu_btn.mapToGlobal(self.menu_btn.rect().bottomLeft()))
@@ -470,6 +472,46 @@ class MainWindow(QMainWindow):
             self.view.setFocus()
             return
         self.stack.setCurrentIndex(2)
+
+    def open_help(self):
+        QMessageBox.information(
+            self,
+            "Help",
+            """
+            <h2>Hackenbush Builder & Player</h2>
+
+            <h3>Basic controls</h3>
+            <p>
+            <b>Left click</b> - place or select graph elements<br>
+            <b>Right click</b> - removes focus on vertex<br>
+            <b>Mouse wheel</b> - changes the color of the edge you are building<br>
+            <b>Edit mode</b> - allows removing any edge<br>
+            <b>Playing button</b> - switches the player to move<br>
+            <b>Building button</b> - switches edge color: blue, red, green
+            </p>
+
+            <h3>Top buttons</h3>
+            <p>
+            <b>Solve</b> - computes the current game value<br>
+            <b>Save</b> - saves the current graph<br>
+            <b>Load</b> - loads a graph from file<br>
+            <b>Trash</b> - clears the scene<br>
+            <b>Undo / Redo</b> - moves backward or forward in history, if there is no history forward, best move is played
+            </p>
+
+            <h3>Menu</h3>
+            <p>
+            <b>Swap colors (-G)</b> - swaps blue and red edges<br>
+            <b>Clear cache</b> - clears solver cache<br>
+            <b>Copy game result</b> - copies the last computed value<br>
+            <b>Analyse position</b> - toggles educational analysis<br>
+            <b>Show hints</b> - shows suggested moves<br>
+            <b>Play against bot</b> - toggles bot mode<br>
+            <b>Calculator</b> - opens game value calculator<br>
+            <b>Settings</b> - opens settings
+            </p>
+            """
+        )
 
     def open_settings(self):
         if self.stack.currentIndex() == 1:

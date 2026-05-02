@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
 source venv/bin/activate
-cd ../RBG/python/
+cd ../short-games/python/

@@ -51,6 +51,7 @@ void position_cache_free(void) {
 
 int position_cache_get(const BaseGraph *g, edge_mask_t live_mask, Game **out_value) {
     if (g == NULL) error_exit(ERR_NULL_POINTER, "");
+    // TODO TADY TAKY
     if (live_mask == 0) return 0;
 
     uint64_t h = hash_graph_state(g, live_mask);
@@ -82,6 +83,7 @@ void position_cache_insert(const BaseGraph *g, edge_mask_t live_mask, Game *valu
         return;
     }
 
+    // TODO WTF, ted na to nemam mozkovou kapacitu, ale proc je to tu
     if (live_mask == 0) return;
 
     uint64_t h = hash_graph_state(g, live_mask);

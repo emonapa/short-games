@@ -11,17 +11,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "memory.h"
 #include "error.h"
 #include "config.h"
+#include "stack.h"
+#include "darray.h"
 
 #include "game_intern_cache.h"
 #include "game_operations_cache.h"
 #include "game_canon_cache.h"
+#include "position_cache.h"
 
 #include "short_game.h"
-#include "stack.h"
-#include "memory.h"
 #include "singletons.h"
+#include "raw_game.h"
 
 int cannon_count = 0;
 int eq_count = 0;
@@ -29,12 +32,14 @@ int add_count = 0;
 int make_count = 0;
 int info_count = 100000000;
 
+float g_memory_multiplier = 0.5;
 
-void short_game_init(size_t free_ram_bytes, float memory_multiplier) {
-    if (free_ram_bytes <= 0)
-        error_exit(ERR_SOLVE_WITH_NONPOSITIVE_MEM, "Trying to initialize CGT with %zuB.\n", free_ram_bytes);
+void short_game_init(float memory_multiplier) {
     if (memory_multiplier > 1 || memory_multiplier <= 0)
         error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
+
+    g_memory_multiplier = memory_multiplier;
+    size_t free_ram_bytes = get_size_free_memory();
 
     size_t ram_to_use = free_ram_bytes * memory_multiplier;
 
@@ -44,10 +49,13 @@ void short_game_init(size_t free_ram_bytes, float memory_multiplier) {
     size_t canon_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_CANON) / sizeof(CanonEntry));
     size_t intern_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_INTERN) / sizeof(InternEntry));
 
+    size_t pos_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_POS) / sizeof(HashEntry));
+
     // inicializace
     game_operations_cache_init(geq_size, add_size);
     game_canon_cache_init(canon_size);
     game_intern_cache_init(intern_size);
+    position_cache_init(pos_size);
 
     singletons_init();
 }
@@ -56,6 +64,7 @@ void short_game_free(void) {
     game_operations_cache_free_all();
     game_canon_cache_free();
     game_intern_cache_free();
+    position_cache_free();
 }
 
 /* ------------------------------------------------------------
@@ -216,27 +225,19 @@ int game_geq(Game *G_root, Game *H_root) {
 }
 #else
 int game_geq(Game *G, Game *H) {
-    if (G == NULL || H == NULL) {
-        error_exit(ERR_NULL_POINTER, "");
-    }
+    if (G == NULL || H == NULL) error_exit(ERR_NULL_POINTER, "");
 
-    if (G == H) {
-        return 1;
-    }
+    if (G == H) return 1;
 
     uint8_t memo;
-    if (game_geq_cache_get(G, H, &memo)) {
-        return (int)memo;
-    }
+    if (game_geq_cache_get(G, H, &memo)) return (int)memo;
 
-    ///
-     // První část definice:
-     // Pro každý pravý tah G^R musí platit:
-     //     !(H >= G^R)
-     //
-     // Pokud najdeme pravý tah G^R takový, že H >= G^R,
-     // potom G >= H neplatí.
-     ///
+    // První část definice:
+    // Pro každý pravý tah G^R musí platit:
+    //     !(H >= G^R)
+    //
+    // Pokud najdeme pravý tah G^R takový, že H >= G^R,
+    // potom G >= H neplatí.
     for (int i = 0; i < G->R_count; i++) {
         Game *GR = G->right[i];
 
@@ -246,14 +247,12 @@ int game_geq(Game *G, Game *H) {
         }
     }
 
-    ///
-     // Druhá část definice:
-     // Pro každý levý tah H^L musí platit:
-     //     !(H^L >= G)
-     //
-     // Pokud najdeme levý tah H^L takový, že H^L >= G,
-     // potom G >= H neplatí.
-     ///
+    // Druhá část definice:
+    // Pro každý levý tah H^L musí platit:
+    //     !(H^L >= G)
+    //
+    // Pokud najdeme levý tah H^L takový, že H^L >= G,
+    // potom G >= H neplatí.
     for (int i = 0; i < H->L_count; i++) {
         Game *HL = H->left[i];
 
@@ -263,10 +262,8 @@ int game_geq(Game *G, Game *H) {
         }
     }
 
-    ///
-     // Pokud neexistuje žádný problémový pravý tah z G
-     // ani žádný problémový levý tah z H, pak G >= H.
-     ///
+    // Pokud neexistuje žádný problémový pravý tah z G
+    // ani žádný problémový levý tah z H, pak G >= H.
     game_geq_cache_put(G, H, 1);
     return 1;
 }
@@ -514,129 +511,97 @@ Game* game_add(Game *G, Game *H) {
 }
 
 
-Game* game_negate(Game *G) {
-    if (G == NULL) return NULL;
+Game* solve_component(RawGame raw_game, Position_t position) {
+    if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
 
-    Game **new_left  = NULL;
-    Game **new_right = NULL;
+    // Memoizace
+    Game *memo = NULL;
+    if (position_cache_get(raw_game, position, &memo))
+        return memo;
 
-    if (G->R_count > 0) {
-        new_left = malloc(sizeof(Game*) * G->R_count);
-        if (!new_left) {
-            warning("Malloc failed in game_negate.\n");
-            return NULL;
+    Game **left_opts = NULL;
+    Game **right_opts = NULL;
+    int l_count = 0, r_count = 0;
+
+    // Rekurzivní průchod všemi tahy
+    for (int e = 0; e < num_moves(raw_game); ++e) {
+        Game *child = NULL;
+        if (can_left_move(raw_game, position, e)) {
+            Position_t child_position = do_move_left(raw_game, position, e);
+            if (child_position == NULL) error_exit(ERR_MALLOC, "");
+
+            child = solve_component(raw_game, child_position);
+            da_push(left_opts, child);
+        }
+        if (can_right_move(raw_game, position, e)) {
+            Position_t child_position = do_move_right(raw_game, position, e);
+            if (child_position == NULL) error_exit(ERR_MALLOC, "");
+
+            child = solve_component(raw_game, child_position);
+            da_push(right_opts, child);
         }
     }
-    if (G->L_count > 0) {
-        new_right = malloc(sizeof(Game*) * G->L_count);
-        if (!new_right) {
-            free(new_left);
-            warning("Malloc failed in game_negate.\n");
-            return NULL; }
-    }
 
-    for (int i = 0; i < G->R_count; i++) {
-        new_left[i] = game_negate(G->right[i]);
-        if (!new_left[i]) { free(new_left); free(new_right); return NULL; }
-    }
-    for (int i = 0; i < G->L_count; i++) {
-        new_right[i] = game_negate(G->left[i]);
-        if (!new_right[i]) { free(new_left); free(new_right); return NULL; }
-    }
+    Game *G = game_canonicalize(game_make(left_opts, (int)da_len(left_opts),
+                                          right_opts, (int)da_len(right_opts)));
 
-    Game *res = game_canonicalize(
-        game_make(new_left, G->R_count, new_right, G->L_count)
-    );
-    free(new_left);
-    free(new_right);
-    return res;
+    da_free(left_opts);
+    da_free(right_opts);
+    position_cache_insert(raw_game, position, G);
+    return G;
 }
 
-/* ------------------------------------------------------------
-   Chlazení hry hvězdičkou: G_*
-   Definice:
-     G_* = G                         pokud G je číslo
-     G_* = { G*_L + * | G*_R + * }  jinak
-   ------------------------------------------------------------ */
-Game* cool_with_star(Game *G) {
-    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
-
-    if (is_number(G)) return G;
-
-    Game **new_left  = NULL;
-    Game **new_right = NULL;
-    Game *star = game_star();
-
-    if (G->L_count > 0) {
-        new_left = (Game**)malloc((size_t)G->L_count * sizeof(Game*));
-        if (new_left == NULL) error_exit(ERR_MALLOC, "");
-        for (int i = 0; i < G->L_count; i++)
-            new_left[i] = game_add(cool_with_star(G->left[i]), star);
-    }
-
-    if (G->R_count > 0) {
-        new_right = (Game**)malloc((size_t)G->R_count * sizeof(Game*));
-        if (new_right == NULL) error_exit(ERR_MALLOC, "");
-        for (int i = 0; i < G->R_count; i++)
-            new_right[i] = game_add(cool_with_star(G->right[i]), star);
-    }
-
-    Game *result = game_canonicalize(
-        game_make(new_left, G->L_count, new_right, G->R_count)
-    );
-
-    if (new_left)  free(new_left);
-    if (new_right) free(new_right);
-
-    return result;
+static void print_stats() {
+    printf("[CACHE] canon_count     = %ld\n", canon_items_count);
+    printf("[CACHE] intern_count    = %ld\n", intern_items_count);
+    printf("[CACHE] add_count       = %ld\n", add_items_count);
+    printf("[CACHE] geq_count       = %ld\n", geq_items_count);
+    printf("[CACHE] pos_items_count = %ld\n", pos_items_count);
+    printf("[META] stack_count      = %ld\n", stack_items_count);
+    printf("[META] make_count       = %d\n", make_count);
 }
 
+//#define PRINT_RESULT
 
-/* ------------------------------------------------------------
-   *-projekce hry H: p(H)
-   Definice:
-     p(H) = x                       pokud H = x nebo H = x + *, kde x je číslo
-     p(H) = { p(H0^L) | p(H0^R) }  jinak  (H0 je kanonická forma H)
-   ------------------------------------------------------------ */
-Game* star_projection(Game *H) {
-    if (H == NULL) error_exit(ERR_NULL_POINTER, "");
+Game* solve(void *raw_game, void *position) {
+    Position_t *sub_games = NULL;
+    int count = get_independent_components(raw_game, position, &sub_games);
 
-    double val;
+    Game *total_sum = game_zero();
 
-    // H = x (dyadické číslo)
-    if (get_dyadic_value(H, &val))
-        return H;
 
-    // H = x + *
-    if (is_dyadic_plus_star(H, &val))
-        return game_add(H, game_star()); // x + * + * = x
-
-    // Obecný případ: { p(H^L) | p(H^R) } nad kanonickou formou
-    Game *H0 = game_canonicalize(H);
-
-    Game **new_left  = NULL;
-    Game **new_right = NULL;
-
-    if (H0->L_count > 0) {
-        new_left = (Game**)malloc((size_t)H0->L_count * sizeof(Game*));
-        if (new_left == NULL) error_exit(ERR_MALLOC, "");
-        for (int i = 0; i < H0->L_count; i++)
-            new_left[i] = star_projection(H0->left[i]);
+#ifdef PRINT_RESULT
+    printf("======================END RESULT==========================\n");
+#endif
+    // Spocitame dalsi a pricteme k mezivysledku
+    for (int i = 0; i < count; i++) {
+        Game *sub_game = solve_component(raw_game, sub_games[i]);
+        total_sum = game_add(total_sum, sub_game);
+#ifdef PRINT_RESULT
+       printf("-------------[%d] Průchod-------------\n", i);
+       print_stats();
+#endif
+        // Grafy se budou pravdepodobne lisit, takze cache resetneme
+        // Ale hinty a edu mode budou EXTREMNE pomale, achjo...
+        //solver_free();
+        //solver_initialize(g_memory_multiplier);
     }
+#ifdef PRINT_RESULT
+    printf("=========================================================\n");
+#endif
 
-    if (H0->R_count > 0) {
-        new_right = (Game**)malloc((size_t)H0->R_count * sizeof(Game*));
-        if (new_right == NULL) error_exit(ERR_MALLOC, "");
-        for (int i = 0; i < H0->R_count; i++)
-            new_right[i] = star_projection(H0->right[i]);
+    game_canonicalize(total_sum);
+
+#ifdef PRINT_RESULT
+    const char *game_string = game_get_string(total_sum, FORMAT_FORMATED);
+    printf("Result: %s", game_string);
+#endif
+
+    for (int i = 0; i < count; i++) {
+        free(sub_games[i]);
     }
+    //V tomto případě možné uvolnit takovýmto způsobem, ale ztrácí to obecnost.
+    //da_free(sub_games);
 
-    Game *result = game_canonicalize(
-        game_make(new_left, H0->L_count, new_right, H0->R_count)
-    );
-
-    if (new_left)  free(new_left);
-    if (new_right) free(new_right);
-
-    return result;
+    return total_sum;
 }

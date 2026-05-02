@@ -25,7 +25,7 @@ typedef struct Game {
     struct Game **right; // Pole pointerů na pravé možnosti
 } Game;
 
-void short_game_init(size_t free_ram_bytes, float memory_multiplier);
+void short_game_init(float memory_multiplier);
 void short_game_free(void);
 
 // Základní operace
@@ -40,6 +40,10 @@ Game* game_canonicalize(Game *G);
 
 // Vypocita matematicky soucet dvou her G a H a vrati vysledek v kanonickem tvaru
 Game* game_add(Game *G, Game *H);
+
+Game* solve_component(const BaseGraph *g, edge_mask_t live_mask);
+// Rozdeli pozici na nezavisle komponenty a secte je
+Game* solve(const BaseGraph *g, edge_mask_t live_mask);
 
 Game* game_negate(Game *G);
 Game* cool_with_star(Game *G);

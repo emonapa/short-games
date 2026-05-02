@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "error.h"
+
 #include "singletons.h"
 #include "short_game.h"
 
@@ -425,11 +427,10 @@ const char* game_get_string(Game *G, enum output_format format) {
 }
 
 /*
-    =======================
-     Funkce pro kalkulačku
-    =======================
-    */
-
+    =======================================================================
+                             Funkce pro kalkulačku
+    =======================================================================
+*/
 // -- make_int --------------------------------------------------------------
 // Build integer n as a canonical Game*.
 Game* make_int(int n) {
@@ -514,7 +515,135 @@ Game* make_down_multiple(int n, int with_star) {
     Game *result = base;
 
     for (int i = 1; i < n; i++) result = game_add(result, base);
-    if (with_star)               result = game_add(result, game_star());
+    if (with_star)              result = game_add(result, game_star());
+
+    return result;
+}
+
+
+Game* game_negate(Game *G) {
+    if (G == NULL) return NULL;
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+
+    if (G->R_count > 0) {
+        new_left = malloc(sizeof(Game*) * G->R_count);
+        if (!new_left) {
+            warning("Malloc failed in game_negate.\n");
+            return NULL;
+        }
+    }
+    if (G->L_count > 0) {
+        new_right = malloc(sizeof(Game*) * G->L_count);
+        if (!new_right) {
+            free(new_left);
+            warning("Malloc failed in game_negate.\n");
+            return NULL; }
+    }
+
+    for (int i = 0; i < G->R_count; i++) {
+        new_left[i] = game_negate(G->right[i]);
+        if (!new_left[i]) { free(new_left); free(new_right); return NULL; }
+    }
+    for (int i = 0; i < G->L_count; i++) {
+        new_right[i] = game_negate(G->left[i]);
+        if (!new_right[i]) { free(new_left); free(new_right); return NULL; }
+    }
+
+    Game *res = game_canonicalize(
+        game_make(new_left, G->R_count, new_right, G->L_count)
+    );
+    free(new_left);
+    free(new_right);
+    return res;
+}
+
+/* ------------------------------------------------------------
+   Chlazení hry hvězdičkou: G_*
+   Definice:
+     G_* = G                         pokud G je číslo
+     G_* = { G*_L + * | G*_R + * }  jinak
+   ------------------------------------------------------------ */
+Game* cool_with_star(Game *G) {
+    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    if (is_number(G)) return G;
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+    Game *star = game_star();
+
+    if (G->L_count > 0) {
+        new_left = (Game**)malloc((size_t)G->L_count * sizeof(Game*));
+        if (new_left == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < G->L_count; i++)
+            new_left[i] = game_add(cool_with_star(G->left[i]), star);
+    }
+
+    if (G->R_count > 0) {
+        new_right = (Game**)malloc((size_t)G->R_count * sizeof(Game*));
+        if (new_right == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < G->R_count; i++)
+            new_right[i] = game_add(cool_with_star(G->right[i]), star);
+    }
+
+    Game *result = game_canonicalize(
+        game_make(new_left, G->L_count, new_right, G->R_count)
+    );
+
+    if (new_left)  free(new_left);
+    if (new_right) free(new_right);
+
+    return result;
+}
+
+
+/* ------------------------------------------------------------
+   *-projekce hry H: p(H)
+   Definice:
+     p(H) = x                       pokud H = x nebo H = x + *, kde x je číslo
+     p(H) = { p(H0^L) | p(H0^R) }  jinak  (H0 je kanonická forma H)
+   ------------------------------------------------------------ */
+Game* star_projection(Game *H) {
+    if (H == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    double val;
+
+    // H = x (dyadické číslo)
+    if (get_dyadic_value(H, &val))
+        return H;
+
+    // H = x + *
+    if (is_dyadic_plus_star(H, &val))
+        return game_add(H, game_star()); // x + * + * = x
+
+    // Obecný případ: { p(H^L) | p(H^R) } nad kanonickou formou
+    Game *H0 = game_canonicalize(H);
+
+    Game **new_left  = NULL;
+    Game **new_right = NULL;
+
+    if (H0->L_count > 0) {
+        new_left = (Game**)malloc((size_t)H0->L_count * sizeof(Game*));
+        if (new_left == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < H0->L_count; i++)
+            new_left[i] = star_projection(H0->left[i]);
+    }
+
+    if (H0->R_count > 0) {
+        new_right = (Game**)malloc((size_t)H0->R_count * sizeof(Game*));
+        if (new_right == NULL) error_exit(ERR_MALLOC, "");
+        for (int i = 0; i < H0->R_count; i++)
+            new_right[i] = star_projection(H0->right[i]);
+    }
+
+    Game *result = game_canonicalize(
+        game_make(new_left, H0->L_count, new_right, H0->R_count)
+    );
+
+    if (new_left)  free(new_left);
+    if (new_right) free(new_right);
 
     return result;
 }

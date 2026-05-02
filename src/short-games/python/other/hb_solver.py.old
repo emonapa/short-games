@@ -54,7 +54,7 @@ CGame._fields_ = [
 ]
 
 class HBSolver:
-    def __init__(self, lib_path="../../../build/RBG/libhb.so"):
+    def __init__(self, lib_path="../../../build/short-games/hackenbush/libhb.so"):
         if not os.path.exists(lib_path):
             base_dir = os.path.dirname(os.path.abspath(__file__))
             alt_path = os.path.join(base_dir, "libhb.so")
@@ -70,8 +70,11 @@ class HBSolver:
         self.memory_multiplier = 0.5
 
         # Mapování C funkcí
-        self.lib.solver_initialize.argtypes = [c_float]
-        self.lib.solver_initialize.restype = None
+        self.lib.short_game_init.argtypes = [c_float]
+        self.lib.short_game_init.restype = None
+
+        self.lib.short_game_free.argtypes = []
+        self.lib.short_game_free.restype = None
 
         self.lib.solve.argtypes = [POINTER(CBaseGraph), c_uint128]
         self.lib.solve.restype = POINTER(CGame)
@@ -87,9 +90,6 @@ class HBSolver:
 
         self.lib.game_get_string.argtypes = [c_void_p, c_int]
         self.lib.game_get_string.restype = c_char_p
-
-        self.lib.solver_free.argtypes = []
-        self.lib.solver_free.restype = None
 
         # combo box
         self.lib.game_make.argtypes = [POINTER(POINTER(CGame)), c_int,
@@ -148,7 +148,7 @@ class HBSolver:
 
     # wrappery
     def initialize(self):
-        self.lib.solver_initialize((c_float)(self.memory_multiplier))
+        self.lib.short_game_init((c_float)(self.memory_multiplier))
 
     def solve(self, graph: CBaseGraph, live_mask: int):
         mask_128 = int_to_uint128(live_mask)
@@ -174,7 +174,7 @@ class HBSolver:
         return c_string_bytes.decode('utf-8')
 
     def free_all(self):
-        self.lib.solver_free()
+        self.lib.short_game_free()
 
     def game_make(self, lefts: list, rights: list):
         ArrT = POINTER(CGame) * max(len(lefts), 1)

@@ -5,9 +5,9 @@ APP_NAME="main"
 DIST_DIR="dist"
 DIST_APP_DIR="${DIST_DIR}/${APP_NAME}.dist"
 
-LIB_SRC="../../../build/RBG/libhb.so"
-FIGS_SRC="./figs"
-MAIN_SRC="./main.py"
+LIB_SRC="../../../../build/RBG/libhb.so"
+FIGS_SRC="./../figs"
+MAIN_SRC="./../main.py"
 
 rm -rf "${DIST_DIR}"
 rm -rf "${APP_NAME}.build"
