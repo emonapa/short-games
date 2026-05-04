@@ -46,7 +46,6 @@ class ShortGameSolver:
 
         if lib_path is not None:
             candidates.append(lib_path)
-
         candidates.append(automatic_lib_path)
         candidates.append(local_lib_path)
 

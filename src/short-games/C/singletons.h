@@ -21,6 +21,9 @@ int    is_zero(Game *G);
 int    is_star(Game *G);
 int    is_one(Game *G);
 
+// -- Output -----------------------------------------------------------------
+const char* game_get_string(Game *G, enum output_format format);
+
 // -- Construction helpers (used by calculator / Python) ---------------------
 Game*  make_int(int n);
 Game*  make_dyadic(int p, int q);   // q must be a power of 2
@@ -35,8 +38,5 @@ int get_dyadic_value(Game *G, double *out_val);
 Game* game_negate(Game *G);
 Game* cool_with_star(Game *G);
 Game* star_projection(Game *H);
-
-// -- Output -----------------------------------------------------------------
-const char* game_get_string(Game *G, enum output_format format);
 
 #endif // SINGLETONS_H

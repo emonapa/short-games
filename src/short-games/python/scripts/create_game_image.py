@@ -3,6 +3,9 @@ import subprocess
 
 from PySide6.QtWidgets import QApplication
 
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 import hb_solver
 import hb_graphics
 import hb_io
@@ -11,7 +14,8 @@ from hb_theme import THEME
 
 app = QApplication(sys.argv)
 
-solver = hb_solver.HBSolver()
+path_to_lib = "../../../../build/short-games/hackenbush/libhackenbush.so"
+solver = hb_solver.HBSolver(path_to_lib)
 solver.initialize()
 
 scene = hb_graphics.GraphScene(solver, THEME.theme)

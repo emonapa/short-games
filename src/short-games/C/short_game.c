@@ -51,7 +51,7 @@ void short_game_init(float memory_multiplier) {
 
     size_t pos_size = get_nearest_power_of_2((size_t)(ram_to_use * PCT_POS) / sizeof(HashEntry));
 
-    // inicializace
+    // Initialize all caches according to the configured memory budget.
     game_operations_cache_init(geq_size, add_size);
     game_canon_cache_init(canon_size);
     game_intern_cache_init(intern_size);
@@ -68,7 +68,7 @@ void short_game_free(void) {
 }
 
 /* ------------------------------------------------------------
-   Základní tvorba uzlu
+   Basic node construction
    ------------------------------------------------------------ */
 Game* game_make(Game **left, int L_count, Game **right, int R_count) {
     Game *g = (Game*)malloc(sizeof(Game));
@@ -102,12 +102,12 @@ Game* game_make(Game **left, int L_count, Game **right, int R_count) {
 //#define GEQ_RECURSIVE
 
 #ifndef GEQ_RECURSIVE
-// Frame pro zasobnik
+// Explicit stack frame used to avoid recursive calls in game_geq.
 typedef struct {
     Game *G;
     Game *H;
-    int stage; // 0 = init, 1 = cyklus G->right, 2 = cyklus H->left
-    int i;     // iterator pro cykly
+    int stage; // 0 = init, 1 = G->right loop, 2 = H->left loop
+    int i;     // loop iterator
 } GeqFrame;
 
 
@@ -123,13 +123,13 @@ int game_geq(Game *G_root, Game *H_root) {
     GeqFrame root = { G_root, H_root, 0, 0 };
     Push(&stack, &root);
 
-    // last_ret funguje jako predavani navratove hodnoty od potomka rodici.
-    // -1 znamena "zadna navratova hodnota neceka na zpracovani".
+    // last_ret passes the return value from a child frame to its parent.
+    // -1 means that no child return value is waiting to be processed.
     int last_ret = -1;
     size_t size_stack = 0;
     while (!IsEmpty(&stack)) {
         GeqFrame *f = (GeqFrame *)Top(&stack);
-        // STAGE 0: Inicializace, kontrola base-cases a memoizace
+        // STAGE 0: Initialization, base case checks, and memoization.
         if (f->stage == 0) {
             if (f->G == f->H) {
                 last_ret = 1;
@@ -156,20 +156,20 @@ int game_geq(Game *G_root, Game *H_root) {
             continue;
         }
 
-        // STAGE 1: pruchody f->G->right[i]
+        // STAGE 1: Iterate through f->G->right[i].
         if (f->stage == 1) {
-            // Pokud jsme se prave vratili z potomka, zkontrolujeme jeho vysledek
+            // If control has just returned from a child frame, check its result.
             if (last_ret != -1) {
-                if (last_ret == 1) { // Potomek (H >= G->right) vratil true
+                if (last_ret == 1) { // Child test (H >= G->right) returned true.
                     game_geq_cache_put(f->G, f->H, 0);
-                    last_ret = 0; // Vracime false pro rodice
+                    last_ret = 0; // Return false to the parent.
                     Pop(&stack);
                     continue;
                 }
-                last_ret = -1; // Potomek vratil false, jdeme na dalsi iteraci
+                last_ret = -1; // Child returned false, continue with the next option.
             }
 
-            // Pokud mame jeste co prochazet v G->right
+            // Continue scanning right options of G if any remain.
             if (f->i < f->G->R_count) {
                 Game *next_G = f->H;
                 Game *next_H = f->G->right[f->i];
@@ -181,26 +181,26 @@ int game_geq(Game *G_root, Game *H_root) {
                 continue;
             }
 
-            // Pokud jsme prosli cele G->right a nezastavili se, prepneme na STAGE 2
+            // All right options of G passed; move to STAGE 2.
             f->stage = 2;
             f->i = 0;
             continue;
         }
 
-        // STAGE 2: pruchody f->H->left[i]
+        // STAGE 2: Iterate through f->H->left[i].
         if (f->stage == 2) {
-            // Kontrola vysledku z predchoziho potomka
+            // Check the result returned by the previous child frame.
             if (last_ret != -1) {
-                if (last_ret == 1) { // Potomek (H->left >= G) vratil true
+                if (last_ret == 1) { // Child test (H->left >= G) returned true.
                     game_geq_cache_put(f->G, f->H, 0);
-                    last_ret = 0; // Vracime false pro rodice
+                    last_ret = 0; // Return false to the parent.
                     Pop(&stack);
                     continue;
                 }
                 last_ret = -1;
             }
 
-            // Pokud mame jeste co prochazet v H->left
+            // Continue scanning left options of H if any remain.
             if (f->i < f->H->L_count) {
                 Game *next_G = f->H->left[f->i];
                 Game *next_H = f->G;
@@ -212,7 +212,7 @@ int game_geq(Game *G_root, Game *H_root) {
                 continue;
             }
 
-            // Vsechny testy prosly => G >= H
+            // All tests passed, therefore G >= H.
             game_geq_cache_put(f->G, f->H, 1);
             last_ret = 1;
             Pop(&stack);
@@ -232,12 +232,12 @@ int game_geq(Game *G, Game *H) {
     uint8_t memo;
     if (game_geq_cache_get(G, H, &memo)) return (int)memo;
 
-    // První část definice:
-    // Pro každý pravý tah G^R musí platit:
+    // First part of the Conway definition:
+    // For each right option G^R, the following must hold:
     //     !(H >= G^R)
     //
-    // Pokud najdeme pravý tah G^R takový, že H >= G^R,
-    // potom G >= H neplatí.
+    // If there is a right option G^R such that H >= G^R,
+    // then G >= H does not hold.
     for (int i = 0; i < G->R_count; i++) {
         Game *GR = G->right[i];
 
@@ -247,12 +247,12 @@ int game_geq(Game *G, Game *H) {
         }
     }
 
-    // Druhá část definice:
-    // Pro každý levý tah H^L musí platit:
+    // Second part of the Conway definition:
+    // For each left option H^L, the following must hold:
     //     !(H^L >= G)
     //
-    // Pokud najdeme levý tah H^L takový, že H^L >= G,
-    // potom G >= H neplatí.
+    // If there is a left option H^L such that H^L >= G,
+    // then G >= H does not hold.
     for (int i = 0; i < H->L_count; i++) {
         Game *HL = H->left[i];
 
@@ -262,8 +262,8 @@ int game_geq(Game *G, Game *H) {
         }
     }
 
-    // Pokud neexistuje žádný problémový pravý tah z G
-    // ani žádný problémový levý tah z H, pak G >= H.
+    // If there is no problematic right option of G and no problematic
+    // left option of H, then G >= H.
     game_geq_cache_put(G, H, 1);
     return 1;
 }
@@ -286,15 +286,15 @@ static void replace_left_option(Game *G, int index, Game *GLR) {
         if (new_arr == NULL) error_exit(ERR_MALLOC, "");
 
         int dst = 0;
-        // 1. Zkopírujeme staré tahy před indexem
+        // 1. Copy old options before the replaced index.
         for (int i = 0; i < index; i++) new_arr[dst++] = G->left[i];
-        // 2. Vložíme vnuky (tahy z potrestané pozice)
+        // 2. Insert grandchildren, which bypass the reversible option.
         for (int i = 0; i < replace_count; i++) new_arr[dst++] = GLR->left[i];
-        // 3. Zkopirujeme staré tahy za indexem
+        // 3. Copy old options after the replaced index.
         for (int i = index + 1; i < old_count; i++) new_arr[dst++] = G->left[i];
     }
 
-    if (G->left) free(G->left); // Uvolníme původní pole
+    if (G->left) free(G->left); // Free the original option array.
     G->left = new_arr;
     G->L_count = new_count;
 }
@@ -323,13 +323,13 @@ static void replace_right_option(Game *G, int index, Game *GRL) {
 }
 
 // -----------------------------------------------------------------
-// HLAVNÍ FUNKCE KANONIZACE
+// MAIN CANONICALIZATION FUNCTION
 // -----------------------------------------------------------------
-// 1. Odstranit leve reverzibilni tahy
-// 2. Odstranit prave reverzibilni tahy
-// 3. Odstranit leve dominovane tahy
-// 4. Odstranit prave dominovane tahy
-// 5. Najit sebe v intern cache
+// 1. Remove left reversible options.
+// 2. Remove right reversible options.
+// 3. Remove left dominated options.
+// 4. Remove right dominated options.
+// 5. Intern the resulting canonical node.
 Game* game_canonicalize(Game *G) {
     if (G == NULL) {
         error_exit(ERR_NULL_POINTER, "");
@@ -342,10 +342,9 @@ Game* game_canonicalize(Game *G) {
 
     cannon_count++;
 
-    // 1) Kanonizuj potomky (zajistí, že GLR už jsou čisté intern pointery)
-    // Ok tohle teoreticky nemusime delat, protoze v klasickem solvu mame zaruceno,
-    //  ze kazda podhra je zkanonizovana, problem je napr v kalkulacce kde to
-    //  zaruceno neni.
+    // 1) Canonicalize children first, so GLR/GRL references are already clean interned pointers.
+    // This is theoretically unnecessary in the standard solver, where every subgame is already
+    // canonicalized. It is still needed for other callers, for example the calculator.
     for (int i = 0; i < G->L_count; i++) G->left[i] = game_canonicalize(G->left[i]);
     for (int i = 0; i < G->R_count; i++) G->right[i] = game_canonicalize(G->right[i]);
 
@@ -353,37 +352,37 @@ Game* game_canonicalize(Game *G) {
     while (changed) {
         changed = 0;
 
-        // 2) Reverzibilní levé tahy
+        // 2) Left reversible options.
         for (int i = 0; i < G->L_count; i++) {
             Game *GL = G->left[i];
             int reversed = 0;
 
             for (int j = 0; j < GL->R_count; j++) {
                 Game *GLR = GL->right[j];
-                // Test: Pokud má cervený odpověď, která ho uspokojí (GLR <= G)
+                // Test whether Right has a reply that is no worse than the original game (GLR <= G).
                 if (game_geq(G, GLR)) {
-                    replace_left_option(G, i, GLR); // Vyhodí past a vloží LRL
+                    replace_left_option(G, i, GLR); // Remove the reversible option and insert its Left options.
                     reversed = 1;
                     break;
                 }
             }
             if (reversed) {
                 changed = 1;
-                break; // Pole tahů se změnilo, jdeme raději odznova
+                break; // The option array changed, so restart the scan.
             }
         }
         if (changed) continue;
 
-        // 3) Reverzibilní pravé tahy
+        // 3) Right reversible options.
         for (int i = 0; i < G->R_count; i++) {
             Game *GR = G->right[i];
             int reversed = 0;
 
             for (int j = 0; j < GR->L_count; j++) {
                 Game *GRL = GR->left[j];
-                // Test: Pokud má Modrý odpověď, která ho uspokojí (GRL >= G)
+                // Test whether Left has a reply that is no worse than the original game (GRL >= G).
                 if (game_geq(GRL, G)) {
-                    replace_right_option(G, i, GRL); // Vyhodí past a vloží RLR
+                    replace_right_option(G, i, GRL); // Remove the reversible option and insert its Right options.
                     reversed = 1;
                     break;
                 }
@@ -395,7 +394,7 @@ Game* game_canonicalize(Game *G) {
         }
         if (changed) continue;
 
-        // 4) Dominované levé tahy
+        // 4) Left dominated options.
         int keep_L = 0;
         for (int i = 0; i < G->L_count; i++) {
             Game *cand = G->left[i];
@@ -420,7 +419,7 @@ Game* game_canonicalize(Game *G) {
         }
         if (changed) continue;
 
-        // 5) Dominované pravé tahy
+        // 5) Right dominated options.
         int keep_R = 0;
         for (int i = 0; i < G->R_count; i++) {
             Game *cand = G->right[i];
@@ -445,7 +444,7 @@ Game* game_canonicalize(Game *G) {
         }
     }
 
-    // 6) Intern kanonický uzel
+    // 6) Intern the canonical node.
     game_intern_cache_prepare(G);
     Game *I = game_intern_cache_get(G);
 
@@ -455,7 +454,7 @@ Game* game_canonicalize(Game *G) {
 
 
 /* ------------------------------------------------------------
-   Součet her s memoizací
+   Game sum with memoization
    ------------------------------------------------------------ */
 Game* game_add(Game *G, Game *H) {
     if (G == NULL && H == NULL) error_exit(ERR_NULL_POINTER, "Both games to add are NULL.\n");
@@ -465,7 +464,7 @@ Game* game_add(Game *G, Game *H) {
     if (G->L_count == 0 && G->R_count == 0) return H;
     if (H->L_count == 0 && H->R_count == 0) return G;
 
-    // komutativni normalizace klice
+    // Normalize the cache key using commutativity.
     if ((uintptr_t)G > (uintptr_t)H) {
         Game *tmp = G; G = H; H = tmp;
     }
@@ -511,10 +510,10 @@ Game* game_add(Game *G, Game *H) {
 }
 
 
-Game* solve_component(RawGame raw_game, Position_t position) {
+Game* solve_component(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
 
-    // Memoizace
+    // Memoization for already solved raw positions.
     Game *memo = NULL;
     if (position_cache_get(raw_game, position, &memo))
         return memo;
@@ -523,7 +522,7 @@ Game* solve_component(RawGame raw_game, Position_t position) {
     Game **right_opts = NULL;
     int l_count = 0, r_count = 0;
 
-    // Rekurzivní průchod všemi tahy
+    // Recursively evaluate all legal moves from this position.
     for (int e = 0; e < num_moves(raw_game); ++e) {
         Game *child = NULL;
         if (can_left_move(raw_game, position, e)) {
@@ -573,7 +572,7 @@ Game* solve(void *raw_game, void *position) {
 #ifdef PRINT_RESULT
     printf("======================END RESULT==========================\n");
 #endif
-    // Spocitame dalsi a pricteme k mezivysledku
+    // Solve each independent component and add it to the accumulated game value.
     for (int i = 0; i < count; i++) {
         Game *sub_game = solve_component(raw_game, sub_games[i]);
         total_sum = game_add(total_sum, sub_game);
@@ -581,8 +580,8 @@ Game* solve(void *raw_game, void *position) {
        printf("-------------[%d] Průchod-------------\n", i);
        print_stats();
 #endif
-        // Grafy se budou pravdepodobne lisit, takze cache resetneme
-        // Ale hinty a edu mode budou EXTREMNE pomale, achjo...
+        // Components are usually different, so the cache could be reset here.
+        // Hints and educational mode would become extremely slow if this were enabled.
         //solver_free();
         //solver_initialize(g_memory_multiplier);
     }
@@ -600,7 +599,7 @@ Game* solve(void *raw_game, void *position) {
     for (int i = 0; i < count; i++) {
         free(sub_games[i]);
     }
-    //V tomto případě možné uvolnit takovýmto způsobem, ale ztrácí to obecnost.
+    // This freeing strategy is possible here, but it makes the code less general.
     //da_free(sub_games);
 
     return total_sum;

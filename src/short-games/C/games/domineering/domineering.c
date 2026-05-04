@@ -57,7 +57,7 @@ DomineeringPosition domineering_make_position(uint64_t occupied_mask) {
     return pos;
 }
 
-int num_moves(RawGame raw_game) {
+int num_moves(RawGame_t raw_game) {
     if (raw_game == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -66,7 +66,7 @@ int num_moves(RawGame raw_game) {
     return board_cells(board);
 }
 
-int can_left_move(RawGame raw_game, Position_t position, int e) {
+int can_left_move(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -90,7 +90,7 @@ int can_left_move(RawGame raw_game, Position_t position, int e) {
     return is_cell_free(pos, e) && is_cell_free(pos, lower);
 }
 
-int can_right_move(RawGame raw_game, Position_t position, int e) {
+int can_right_move(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -114,7 +114,7 @@ int can_right_move(RawGame raw_game, Position_t position, int e) {
     return is_cell_free(pos, e) && is_cell_free(pos, right);
 }
 
-Position_t do_move_left(RawGame raw_game, Position_t position, int e) {
+Position_t do_move_left(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -140,7 +140,7 @@ Position_t do_move_left(RawGame raw_game, Position_t position, int e) {
     return next;
 }
 
-Position_t do_move_right(RawGame raw_game, Position_t position, int e) {
+Position_t do_move_right(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -165,7 +165,7 @@ Position_t do_move_right(RawGame raw_game, Position_t position, int e) {
     return next;
 }
 
-uint64_t hash_raw_game_position(RawGame raw_game, Position_t position, int e) {
+uint64_t hash_raw_game_position(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -190,7 +190,7 @@ uint64_t hash_raw_game_position(RawGame raw_game, Position_t position, int e) {
     return h;
 }
 
-static int has_any_move(RawGame raw_game, Position_t position) {
+static int has_any_move(RawGame_t raw_game, Position_t position) {
     int moves = num_moves(raw_game);
 
     for (int e = 0; e < moves; ++e) {
@@ -212,7 +212,7 @@ static int has_any_move(RawGame raw_game, Position_t position) {
  * Pokud existuje aspon jeden tah, vratime jednu kopii cele pozice.
  * Pokud neexistuje tah, vratime 0 komponent a solve() dostane game_zero().
  */
-int get_independent_components(RawGame raw_game, Position_t position, Position_t *sub_masks[]) {
+int get_independent_components(RawGame_t raw_game, Position_t position, Position_t *sub_masks[]) {
     if (raw_game == NULL || position == NULL || sub_masks == NULL) error_exit(ERR_NULL_POINTER, "");
 
     if (!has_any_move(raw_game, position)) return 0;

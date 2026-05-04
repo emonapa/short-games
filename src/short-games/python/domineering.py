@@ -218,6 +218,7 @@ def main() -> None:
     print_board(board.width, board.height, removed_mask)
 
     solver = DomineeringSolver(lib_path)
+    solver.memory_multiplier = 0.9
     solver.initialize()
 
     try:

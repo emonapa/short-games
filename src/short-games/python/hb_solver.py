@@ -84,8 +84,6 @@ class HBSolver(RawGameSolver):
     PositionType = CPosition
 
     def __init__(self, lib_path: str = DEFAULT_HB_LIB_PATH):
-        # Pokud budou použita správné názvy souborů, potom knihovna bude nalezena sama
-        #super().__init__()
         super().__init__(lib_path) # nebo předáno explicitně
 
         self.lib.cleanup_position.argtypes = [POINTER(CBaseGraph), CUInt128]

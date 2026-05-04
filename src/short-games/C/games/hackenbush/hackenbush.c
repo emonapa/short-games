@@ -79,13 +79,13 @@ edge_mask_t cleanup_position(const BaseGraph *g, edge_mask_t live_mask) {
  * Výchází ze souboru "raw_game.h".
  * ------------------------------------------------------------------------
  */
-int num_moves(RawGame raw_game) {
+int num_moves(RawGame_t raw_game) {
     if (raw_game == NULL) error_exit(ERR_NULL_POINTER, "");
     BaseGraph *g = (BaseGraph*)(raw_game);
     return g->num_edges;
 }
 
-Position_t do_move_left(RawGame raw_game, Position_t position, int e) {
+Position_t do_move_left(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
 
     BaseGraph *g = (BaseGraph *)raw_game;
@@ -99,11 +99,11 @@ Position_t do_move_left(RawGame raw_game, Position_t position, int e) {
     return pos_after;
 }
 
-Position_t do_move_right(RawGame raw_game, Position_t position, int e) {
+Position_t do_move_right(RawGame_t raw_game, Position_t position, int e) {
     return do_move_left(raw_game, position, e);
 }
 
-int can_left_move(RawGame raw_game, Position_t position, int e) {
+int can_left_move(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
     BaseGraph *g = (BaseGraph*)(raw_game);
     Position *pos = (Position *)(position);
@@ -113,7 +113,7 @@ int can_left_move(RawGame raw_game, Position_t position, int e) {
     return (c == EDGE_BLUE || c == EDGE_GREEN);
 }
 
-int can_right_move(RawGame raw_game, Position_t position, int e) {
+int can_right_move(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
     BaseGraph *g = (BaseGraph*)(raw_game);
     Position *pos = (Position *)(position);
@@ -123,7 +123,7 @@ int can_right_move(RawGame raw_game, Position_t position, int e) {
     return (c == EDGE_RED || c == EDGE_GREEN);
 }
 
-uint64_t hash_raw_game_position(RawGame raw_game, Position_t position, int e) {
+uint64_t hash_raw_game_position(RawGame_t raw_game, Position_t position, int e) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
     BaseGraph *g = (BaseGraph *)raw_game;
     Position *pos = (Position *)position;
@@ -141,7 +141,7 @@ static Position_t create_position(edge_mask_t mask) {
     return component_mask;
 }
 
-int get_independent_components(RawGame raw_game, Position_t position, Position_t *sub_masks[]) {
+int get_independent_components(RawGame_t raw_game, Position_t position, Position_t *sub_masks[]) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
     BaseGraph *g = (BaseGraph *)raw_game;
     Position *pos = (Position *)position;

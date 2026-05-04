@@ -672,7 +672,7 @@ class GraphScene(QGraphicsScene):
             window.edu_manager.update_overlay()
 
 
-
+    """
     def export_png(
         self,
         path: str,
@@ -862,6 +862,252 @@ class GraphScene(QGraphicsScene):
             painter.setPen(QPen(self.theme.ground_line_q(), self.theme.ground_line_w))
             painter.drawLine(QPointF(0, local_ground_y), QPointF(width, local_ground_y))
 
+            painter.end()
+
+            return image.save(path, "PNG")
+
+        finally:
+            for item in hidden_items:
+                item.show()
+
+            if include_bubbles and edu_manager is not None:
+                if old_edu_active is not None:
+                    edu_manager.active = old_edu_active
+                edu_manager.update_overlay()
+    """
+
+    def export_png(
+        self,
+        path: str,
+        margin: int = 24,
+        *,
+        fixedX: float | None = None,
+        fixedY: float | None = None,
+        finalX: int | None = None,
+        finalY: int | None = None,
+        include_bubbles: bool = False,
+    ) -> bool:
+        hidden_items = []
+        edu_manager = getattr(self, "edu_manager", None)
+        old_edu_active = None
+
+        GROUND_BAND_H = 36.0
+
+        try:
+            if include_bubbles and edu_manager is not None:
+                old_edu_active = edu_manager.active
+                if not edu_manager.active:
+                    edu_manager.active = True
+                edu_manager.update_overlay()
+
+            for item in (
+                self.ground_rect_item,
+                self.ground_line_item,
+                self.pending_marker,
+                self.floating_hint,
+                self.slash_item,
+            ):
+                if item is not None and item.isVisible():
+                    item.hide()
+                    hidden_items.append(item)
+
+            for item in list(self.active_slashes):
+                if item is not None and item.isVisible():
+                    item.hide()
+                    hidden_items.append(item)
+
+            if not include_bubbles:
+                for item in self.items():
+                    if isinstance(item, EduBubble) and item.isVisible():
+                        item.hide()
+                        hidden_items.append(item)
+
+            points = []
+            for i in range(int(self.g.num_vertices)):
+                if self.vertex_items[i] is not None:
+                    p = self.vertex_pos[i]
+                    points.append((p.x(), p.y()))
+
+            if not points:
+                min_x = 0.0
+                max_x = 64.0
+                min_y = self.ground_y - 64.0
+                max_y = self.ground_y
+            else:
+                min_x = min(x for x, _ in points)
+                max_x = max(x for x, _ in points)
+                min_y = min(y for _, y in points)
+                max_y = max(y for _, y in points)
+
+                if math.isclose(min_x, max_x):
+                    min_x -= 1.0
+                    max_x += 1.0
+                if math.isclose(min_y, max_y):
+                    min_y -= 1.0
+                    max_y += 1.0
+
+            if include_bubbles:
+                for item in self.items():
+                    if isinstance(item, EduBubble) and item.isVisible():
+                        r = item.sceneBoundingRect()
+                        min_x = min(min_x, r.left())
+                        max_x = max(max_x, r.right())
+                        min_y = min(min_y, r.top())
+                        max_y = max(max_y, r.bottom())
+
+            bottom_y = max(max_y, self.ground_y)
+
+            line_half = max(1.0, self.theme.ground_line_w * 0.5)
+            required_bottom = self.ground_y + GROUND_BAND_H + line_half
+
+            if fixedX is not None and fixedX <= 0:
+                raise ValueError("fixedX musi byt kladne")
+            if fixedY is not None and fixedY <= 0:
+                raise ValueError("fixedY musi byt kladne")
+            if finalX is not None and finalX <= 0:
+                raise ValueError("finalX musi byt kladne")
+            if finalY is not None and finalY <= 0:
+                raise ValueError("finalY musi byt kladne")
+
+            auto_left = min_x - margin
+            auto_top = min_y - margin
+            auto_width = (max_x - min_x) + 2 * margin
+            auto_height = (bottom_y - min_y) + 2 * margin
+
+            if fixedX is None and fixedY is None:
+                export_rect = QRectF(
+                    auto_left,
+                    auto_top,
+                    auto_width,
+                    auto_height,
+                )
+
+            elif fixedX is not None and fixedY is not None:
+                center_x = 0.5 * (min_x + max_x)
+                left_x = center_x - fixedX / 2.0
+
+                bottom = max(bottom_y, required_bottom)
+                top_y = bottom - fixedY
+
+                export_rect = QRectF(
+                    left_x,
+                    top_y,
+                    fixedX,
+                    fixedY,
+                )
+
+            elif fixedX is not None:
+                center_x = 0.5 * (min_x + max_x)
+                left_x = center_x - fixedX / 2.0
+
+                export_rect = QRectF(
+                    left_x,
+                    auto_top,
+                    fixedX,
+                    auto_height,
+                )
+
+            else:
+                bottom = max(bottom_y, required_bottom)
+                top_y = bottom - fixedY
+
+                export_rect = QRectF(
+                    auto_left,
+                    top_y,
+                    auto_width,
+                    fixedY,
+                )
+
+            width = max(1, int(math.ceil(export_rect.width())))
+            height = max(1, int(math.ceil(export_rect.height())))
+
+            image = QImage(width, height, QImage.Format_ARGB32)
+            image.fill(Qt.transparent)
+
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+            self.render(painter, QRectF(0, 0, width, height), export_rect)
+            painter.end()
+
+            local_ground_y = self.ground_y - export_rect.top()
+
+            if finalY is not None:
+                final_width = int(finalX) if finalX is not None else width
+                final_height = int(finalY)
+
+                # O kolik se posune ground po scalení
+                scale_y = final_height / height
+                scaled_ground_y = local_ground_y * scale_y
+
+                # Chceme ground na (final_height - GROUND_BAND_H) + posun o polovinu vrcholu
+                target_ground_y = final_height - GROUND_BAND_H + self.hit_radius * 0.5
+                shift_scaled = scaled_ground_y - target_ground_y
+
+                # Shift zpět do prostoru před scalením
+                shift_pre_scale = shift_scaled / scale_y
+                extra_h = int(math.ceil(shift_pre_scale))
+                new_height = height + extra_h
+
+                # Nový obrazek s extra výškou dole — jen průhledný, žádná země
+                new_image = QImage(width, new_height, QImage.Format_ARGB32)
+                new_image.fill(Qt.transparent)
+
+                painter = QPainter(new_image)
+                painter.drawImage(0, 0, image)
+                painter.end()
+
+                # Scale na finální rozměr
+                scaled_image = new_image.scaled(
+                    final_width,
+                    final_height,
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+
+                # Nakresli zem jednou, správně, přes celou šířku až do spodku
+                ground_y_final = float(final_height - GROUND_BAND_H) + self.hit_radius * 0.5
+
+                painter = QPainter(scaled_image)
+                painter.setRenderHint(QPainter.Antialiasing, True)
+                painter.setRenderHint(QPainter.TextAntialiasing, True)
+                painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+                painter.fillRect(
+                    QRectF(0, ground_y_final, final_width, final_height - ground_y_final),
+                    QBrush(self.theme.ground_q())
+                )
+                painter.setPen(QPen(self.theme.ground_line_q(), self.theme.ground_line_w))
+                painter.drawLine(
+                    QPointF(0, ground_y_final),
+                    QPointF(final_width, ground_y_final),
+                )
+                painter.end()
+
+                return scaled_image.save(path, "PNG")
+
+            # --- Cesta bez finalY ---
+            final_width = int(finalX) if finalX is not None else width
+
+            if finalX is not None:
+                image = image.scaled(
+                    final_width,
+                    height,
+                    Qt.IgnoreAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+                width = final_width
+
+            painter = QPainter(image)
+            painter.setRenderHint(QPainter.Antialiasing, True)
+            painter.setRenderHint(QPainter.TextAntialiasing, True)
+            painter.setRenderHint(QPainter.SmoothPixmapTransform, True)
+            painter.fillRect(
+                QRectF(0, local_ground_y, width, GROUND_BAND_H),
+                QBrush(self.theme.ground_q())
+            )
+            painter.setPen(QPen(self.theme.ground_line_q(), self.theme.ground_line_w))
+            painter.drawLine(QPointF(0, local_ground_y), QPointF(width, local_ground_y))
             painter.end()
 
             return image.save(path, "PNG")

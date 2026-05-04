@@ -1,3 +1,13 @@
+/*
+ * Final bachelors thesis
+ * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ *
+ * Faculty of Information Technology Brno University of Technology
+ * Author: Václav Matyáš (xmatyav00)
+ */
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,7 +55,7 @@ void singletons_init(void) {
 }
 
 // -----------------------------------------------------------------
-// Gettery
+// Getters
 // -----------------------------------------------------------------
 Game* game_zero(void) { return val_zero; }
 Game* game_star(void) { return val_star; }
@@ -59,7 +69,7 @@ int is_star(Game *G) { return G == val_star; }
 int is_one(Game *G)  { return G == val_one; }
 
 // -----------------------------------------------------------------
-// Násobky arrow
+// Arrow multiples
 // -----------------------------------------------------------------
 static int get_up_arrow_multiple(Game *G) {
     if (!G) return 0;
@@ -99,19 +109,19 @@ static int get_down_arrow_multiple(Game *G) {
 
 
 // -----------------------------------------------------------------
-// Nimber funkce
+// Nimber functions
 // -----------------------------------------------------------------
-// Vrací 'n' pro hodnotu *n (kde *0 = 0), nebo -1 pokud to není nim-hodnota
+// Returns 'n' for the value *n, where *0 = 0, or -1 if this is not a nimber.
 static int get_nimber_value(Game *G) {
     if (!G) return -1;
-    if (G->L_count == 0 && G->R_count == 0) return 0; // Nula je *0
+    if (G->L_count == 0 && G->R_count == 0) return 0; // Zero is *0.
 
-    // Nim-hodnota musí mít symetrický počet tahů
+    // A nimber must have the same number of Left and Right options.
     if (G->L_count != G->R_count) return -1;
 
     int n = G->L_count;
 
-    // Pole zda jsme našli všechny hodnoty 0 až n-1
+    // Track whether all values from 0 to n - 1 were found.
     int *found_L = (int*)calloc(n, sizeof(int));
     int *found_R = (int*)calloc(n, sizeof(int));
     int is_nimber = 1;
@@ -120,7 +130,7 @@ static int get_nimber_value(Game *G) {
         int vL = get_nimber_value(G->left[i]);
         int vR = get_nimber_value(G->right[i]);
 
-        // Pokud potomek není nim-hodnota, nebo je moc velký, končíme
+        // If a child is not a nimber, or its value is too large, this cannot be *n.
         if (vL < 0 || vL >= n) { is_nimber = 0; break; }
         if (vR < 0 || vR >= n) { is_nimber = 0; break; }
 
@@ -128,7 +138,7 @@ static int get_nimber_value(Game *G) {
         found_R[vR] = 1;
     }
 
-    // Kontrola, zda nám nechybí žádná mezera (např. máme 0 a *2, ale chybí *1)
+    // Check that there are no gaps, for example 0 and *2 without *1.
     if (is_nimber) {
         for (int i = 0; i < n; i++) {
             if (!found_L[i] || !found_R[i]) {
@@ -144,12 +154,12 @@ static int get_nimber_value(Game *G) {
     return is_nimber ? n : -1;
 }
 
-// Naše sureální čísla nebudou mít tak velké zanoření
-// (relativně podle limitů solveru max ≈500), takže rekurze není problém
+// These surreal numbers are not expected to be deeply nested
+// relative to the solver limits, so recursion is acceptable here.
 // -----------------------------------------------------------------
-// Pomocné funkce
+// Helper functions
 // -----------------------------------------------------------------
-// Vrací 1, pokud je kanonická hra dyadické/celé číslo
+// Returns 1 if the canonical game is a dyadic or integer number.
 int is_number(Game *G) {
     if (!G) return 0;
     if (G->L_count == 0 && G->R_count == 0) return 1;
@@ -158,57 +168,57 @@ int is_number(Game *G) {
     if (G->L_count == 1 && !is_number(G->left[0])) return 0;
     if (G->R_count == 1 && !is_number(G->right[0])) return 0;
 
-    // Číselná podmínka: žádné GL >= GR
-    // Bez tohoto je např. * = {0|0} považován za číslo (0 >= 0 platí, tedy * číslo není)
+    // Number condition: no GL >= GR may hold.
+    // Without this check, for example * = {0|0} would be treated as a number.
     if (G->L_count == 1 && G->R_count == 1)
         if (game_geq(G->left[0], G->right[0])) return 0;
 
     return 1;
 }
 
-// Vrací 1, pokud je hra číslo, a uloží jeho hodnotu do *out_val
+// Returns 1 if the game is a number and stores its value in *out_val.
 int get_dyadic_value(Game *G, double *out_val) {
     if (!G) return 0;
 
-    // base case
+    // Base case.
     if (G == game_zero()) {
         *out_val = 0.0;
         return 1;
     }
 
-    // Kanonické číslo nesmí mít více než 1 tah na každou stranu
-    // Toto funguje pouze kdyz je cislo v kanonicke forme
-    // (v tomto pripade kdyz nema zadne dominovane tahy)
+    // A canonical number must have at most one option on each side.
+    // This only works when the number is in canonical form, meaning
+    // there are no dominated options in this case.
     if (G->L_count > 1 || G->R_count > 1) return 0;
 
     double l_val = 0.0, r_val = 0.0;
     int has_L = 0, has_R = 0;
 
-    // Pokud má levý tah, musí to být také číslo
+    // A Left option, if present, must also be a number.
     if (G->L_count == 1) {
         if (!get_dyadic_value(G->left[0], &l_val)) return 0;
         has_L = 1;
     }
-    // Pokud má pravý tah, musí to být také číslo
+    // A Right option, if present, must also be a number.
     if (G->R_count == 1) {
         if (!get_dyadic_value(G->right[0], &r_val)) return 0;
         has_R = 1;
     }
 
-    // Výpočet hodnoty podle Conwayových pravidel pro čísla:
+    // Compute the value using Conway's rules for numbers.
     if (has_L && !has_R) {
-        *out_val = l_val + 1.0;  // Přičítání (např. {0 | } = 1)
+        *out_val = l_val + 1.0;  // Addition, for example {0 | } = 1.
         return 1;
     } else if (!has_L && has_R) {
-        *out_val = r_val - 1.0;  // Odčítání (např. { | 0} = -1)
+        *out_val = r_val - 1.0;  // Subtraction, for example { | 0} = -1.
         return 1;
     } else if (has_L && has_R) {
-        // V číslech musí platit, že levá možnost je menší než pravá
+        // For numbers, the left option must be smaller than the right option.
         if (l_val >= r_val) return 0;
 
-        // Toto funguje pouze když je číslo v kanonickém tvaru
-        // (v tomto pripade pokud nema zadne reverzibilni tahy)
-        *out_val = (l_val + r_val) / 2.0; // Zlomek (např. {0 | 1} = 0.5)
+        // This only works when the number is in canonical form,
+        // meaning there are no reversible options in this case.
+        *out_val = (l_val + r_val) / 2.0; // Fraction, for example {0 | 1} = 0.5.
         return 1;
     }
 
@@ -216,43 +226,43 @@ int get_dyadic_value(Game *G, double *out_val) {
 }
 
 
-// Je hra přesně base + * ? (Tedy {base | base})
+// Is this game exactly base + *, i.e. {base | base}?
 int is_base_plus_star(Game *G, Game *base) {
     if (!G || !base) return 0;
     return (G->L_count == 1 && G->R_count == 1 &&
             G->left[0] == base && G->right[0] == base);
 }
 
-// Určitě jde nějak teoreticky dokázat proč všechny ty divné algoritmy
-// fungují, ale byly vytvořeny jako vypsání pár prvních a najítí patternu
+// The pattern-based algorithms below can probably be proven formally,
+// but they were derived by listing the first few values and identifying patterns.
 // -----------------------------------------------------------------
-// 1. dyad. číslo + násobky šipky dolů (X + n↓)
+// 1. Dyadic number + multiples of down arrow (X + n↓)
 // -----------------------------------------------------------------
 static int get_number_plus_down_arrows(Game *G, double *out_base_val) {
-    // Musí mít právě jeden tah na obě strany
+    // Must have exactly one option on each side.
     if (!G || G->L_count != 1 || G->R_count != 1) return 0;
 
     Game *base = G->right[0];
-    if (!is_number(base)) return 0; // Základ musi být číslo
+    if (!is_number(base)) return 0; // The base must be a number.
 
     int count = 1;
     Game *curr = G;
 
     while (1) {
         if (curr->L_count != 1 || curr->R_count != 1) return 0;
-        if (curr->right[0] != base) return 0; // base musí zůstat stejná
+        if (curr->right[0] != base) return 0; // The base must remain the same.
 
-        Game *next = curr->left[0]; // Zanořujeme se DOLEVA
+        Game *next = curr->left[0]; // Descend to the left.
 
         if (next->L_count == 1 && next->left[0] == base) {
 
-            // a) next->right == base (To je {base | base}, tedy přesně base + *)
+            // a) next->right == base, which is {base | base}, exactly base + *.
             if (next->R_count == 1 && next->right[0] == base) {
                 get_dyadic_value(base, out_base_val);
                 return count;
             }
 
-            // b) next->right == {base, {base|base}}
+            // b) next->right == {base, {base|base}}.
             if (next->R_count == 2) {
                 int has_base = (next->right[0] == base || next->right[1] == base);
                 int has_star = (is_base_plus_star(next->right[0], base) || is_base_plus_star(next->right[1], base));
@@ -272,10 +282,10 @@ static int get_number_plus_down_arrows(Game *G, double *out_base_val) {
 
 
 static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
-    // Musí mít právě jeden tah na obě strany
+    // Must have exactly one option on each side.
     if (!G || G->L_count != 1 || G->R_count != 1) return 0;
 
-    // U šipky nahoru (↑ = {0 | *}) je základní číslo vzdy vlevo
+    // For the up arrow (↑ = {0 | *}), the base number is always on the left.
     Game *base = G->left[0];
     if (!is_number(base)) return 0;
 
@@ -284,19 +294,19 @@ static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
 
     while (1) {
         if (curr->L_count != 1 || curr->R_count != 1) return 0;
-        if (curr->left[0] != base) return 0; // base je teď vlevo
+        if (curr->left[0] != base) return 0; // The base is now on the left.
 
-        Game *next = curr->right[0]; // Zanořujeme se doprava
+        Game *next = curr->right[0]; // Descend to the right.
 
         if (next->R_count == 1 && next->right[0] == base) {
 
-            // next->left == base (To je {base | base})
+            // next->left == base, which is {base | base}.
             if (next->L_count == 1 && next->left[0] == base) {
                 get_dyadic_value(base, out_base_val);
                 return count;
             }
 
-            // next->left == {base, {base|base}}
+            // next->left == {base, {base|base}}.
             if (next->L_count == 2) {
                 int has_base = (next->left[0] == base || next->left[1] == base);
                 int has_star = (is_base_plus_star(next->left[0], base) || is_base_plus_star(next->left[1], base));
@@ -329,7 +339,7 @@ static void buffer_append(const char *text) {
     }
 }
 
-// Hodnotu surrealniho cisla zapise do bufferu
+// Writes the value of a surreal number to the buffer.
 static void game_get_string_recursive(Game *G, enum output_format format) {
     if (!G) return;
 
@@ -349,7 +359,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
         else if (G == val_up_star)   { buffer_append("↑ + *"); return; }
         else if (G == val_down_star) { buffer_append("↓ + *"); return; }
 
-        // násobky šipek
+        // Arrow multiples.
         int up_arrows = get_up_arrow_multiple(G);
         if (up_arrows > 0) {
             if (up_arrows == 1) snprintf(temp, sizeof(temp), "↑");
@@ -366,7 +376,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
             return;
         }
 
-        // nasobky nimberu (*)
+        // Nimber multiples (*).
         int nimbers = get_nimber_value(G);
         if (nimbers > 0) {
             if (nimbers == 1) snprintf(temp, sizeof(temp), "*");
@@ -375,7 +385,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
             return;
         }
 
-        // císlo + X šipek
+        // Number + X arrows.
         double base_val;
 
         int n_down = get_number_plus_down_arrows(G, &base_val);
@@ -394,7 +404,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
             return;
         }
 
-        // dyadic + *
+        // Dyadic number + *.
         if (G->L_count == 1 && G->R_count == 1 && G->left[0] == G->right[0]) {
             if(get_dyadic_value(G->left[0], &num_val)) {
                 snprintf(temp, sizeof(temp), "%g + *", num_val);
@@ -404,7 +414,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
         }
     }
 
-    // fallback
+    // Fallback.
     buffer_append("{");
     for (int i = 0; i < G->L_count; i++) {
         game_get_string_recursive(G->left[i], format);
@@ -418,7 +428,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
     buffer_append("}");
 }
 
-// wrapper pro python
+// Wrapper for Python bindings.
 const char* game_get_string(Game *G, enum output_format format) {
     print_buffer[0] = '\0';
     if (!G) return "NULL";
@@ -428,7 +438,7 @@ const char* game_get_string(Game *G, enum output_format format) {
 
 /*
     =======================================================================
-                             Funkce pro kalkulačku
+                             Calculator functions
     =======================================================================
 */
 // -- make_int --------------------------------------------------------------
@@ -455,10 +465,10 @@ Game* make_dyadic(int p, int q) {
     if (q <= 0 || (q & (q - 1)) != 0) return NULL;
     if (q == 1) return make_int(p);
 
-    // redukce
+    // Reduce the fraction.
     if ((p & 1) == 0) return make_dyadic(p / 2, q / 2);
 
-    // Conway tvar
+    // Conway form.
     int half_q = q / 2;
     int k = (p - 1) / 2;
 
@@ -508,6 +518,8 @@ Game* make_up_multiple(int n, int with_star) {
 
 
 // -- make_down_multiple ----------------------------------------------------
+// Build n*↓, optionally adding * at the end.
+// n must be >= 1.  with_star: 0 or 1.
 Game* make_down_multiple(int n, int with_star) {
     if (n <= 0) return NULL;
 
@@ -560,10 +572,10 @@ Game* game_negate(Game *G) {
 }
 
 /* ------------------------------------------------------------
-   Chlazení hry hvězdičkou: G_*
-   Definice:
-     G_* = G                         pokud G je číslo
-     G_* = { G*_L + * | G*_R + * }  jinak
+   Cooling a game with star: G_*
+   Definition:
+     G_* = G                         if G is a number
+     G_* = { G*_L + * | G*_R + * }  otherwise
    ------------------------------------------------------------ */
 Game* cool_with_star(Game *G) {
     if (G == NULL) error_exit(ERR_NULL_POINTER, "");
@@ -600,25 +612,25 @@ Game* cool_with_star(Game *G) {
 
 
 /* ------------------------------------------------------------
-   *-projekce hry H: p(H)
-   Definice:
-     p(H) = x                       pokud H = x nebo H = x + *, kde x je číslo
-     p(H) = { p(H0^L) | p(H0^R) }  jinak  (H0 je kanonická forma H)
+   Star projection of a game H: p(H)
+   Definition:
+     p(H) = x                       if H = x or H = x + *, where x is a number
+     p(H) = { p(H0^L) | p(H0^R) }  otherwise  (H0 is the canonical form of H)
    ------------------------------------------------------------ */
 Game* star_projection(Game *H) {
     if (H == NULL) error_exit(ERR_NULL_POINTER, "");
 
     double val;
 
-    // H = x (dyadické číslo)
+    // H = x (dyadic number).
     if (get_dyadic_value(H, &val))
         return H;
 
-    // H = x + *
+    // H = x + *.
     if (is_dyadic_plus_star(H, &val))
-        return game_add(H, game_star()); // x + * + * = x
+        return game_add(H, game_star()); // x + * + * = x.
 
-    // Obecný případ: { p(H^L) | p(H^R) } nad kanonickou formou
+    // General case: { p(H^L) | p(H^R) } over the canonical form.
     Game *H0 = game_canonicalize(H);
 
     Game **new_left  = NULL;
