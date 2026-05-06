@@ -151,7 +151,7 @@ class MainWindow(QMainWindow):
         self.step_back_btn.setIcon(QIcon("figs/history-left.svg"))
         self.step_back_btn.setIconSize(QSize(33, 33))
         self.step_back_btn.setFixedSize(40, 40)
-v        self.step_back_btn.setFont(icon_font)
+        self.step_back_btn.setFont(icon_font)
         self.step_back_btn.clicked.connect(self.step_backward)
 
         self.step_fwd_btn = QPushButton()

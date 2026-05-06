@@ -31,7 +31,6 @@ extern size_t geq_items_count;
 extern size_t pos_items_count;
 
 // other meta information
-extern size_t stack_items_count;
 extern int cannon_count;
 
 #endif // CONFIG_H

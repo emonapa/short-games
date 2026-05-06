@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "error.h"
+#include "shared/error.h"
 
 #include "game_canon_cache.h"
 #include "config.h"

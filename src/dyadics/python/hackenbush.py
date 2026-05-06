@@ -39,9 +39,9 @@ class CDyadic(Structure):
 
 def load_library() -> ctypes.CDLL:
     here     = os.path.abspath(os.path.dirname(__file__))
-    lib_path = os.path.join(here, "../../../build/RB/libhb.so")
+    lib_path = os.path.join(here, "../../../build/dyadics/libdyadics.so")
     if not os.path.exists(lib_path):
-        alt = "./libhb.so"
+        alt = "./libdyadics.so"
         if os.path.exists(alt):
             lib_path = alt
         else:

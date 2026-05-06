@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "error.h"
+#include "shared/error.h"
 
 #include "game_operations_cache.h"
 #include "config.h"

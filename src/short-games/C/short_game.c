@@ -11,11 +11,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "memory.h"
-#include "error.h"
+#include "shared/error.h"
+#include "shared/stack.h"
+#include "shared/darray.h"
+#include "shared/raw_game.h"
+
 #include "config.h"
-#include "stack.h"
-#include "darray.h"
+#include "memory.h"
 
 #include "game_intern_cache.h"
 #include "game_operations_cache.h"
@@ -24,7 +26,6 @@
 
 #include "short_game.h"
 #include "singletons.h"
-#include "raw_game.h"
 
 int cannon_count = 0;
 int eq_count = 0;
@@ -556,7 +557,6 @@ static void print_stats() {
     printf("[CACHE] add_count       = %ld\n", add_items_count);
     printf("[CACHE] geq_count       = %ld\n", geq_items_count);
     printf("[CACHE] pos_items_count = %ld\n", pos_items_count);
-    printf("[META] stack_count      = %ld\n", stack_items_count);
     printf("[META] make_count       = %d\n", make_count);
 }
 

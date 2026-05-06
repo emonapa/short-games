@@ -17,7 +17,7 @@ caching game
 #include <stdio.h>
 #include <assert.h>
 
-#include "error.h"
+#include "shared/error.h"
 #include "config.h"
 
 #include "game_intern_cache.h"

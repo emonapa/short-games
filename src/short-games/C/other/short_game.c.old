@@ -752,7 +752,6 @@ static void print_stats() {
     printf("[CACHE] add_count       = %ld\n", add_items_count);
     printf("[CACHE] geq_count       = %ld\n", geq_items_count);
     printf("[CACHE] pos_items_count = %ld\n", pos_items_count);
-    printf("[META] stack_count      = %ld\n", stack_items_count);
     printf("[META] make_count       = %d\n", make_count);
 }
 

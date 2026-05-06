@@ -11,7 +11,7 @@
 #define SHORT_GAME_H
 
 #include <stdlib.h>
-#include "raw_game.h"
+#include "shared/raw_game.h"
 
 extern int cannon_count;
 extern int eq_count;

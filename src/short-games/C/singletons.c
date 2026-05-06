@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "error.h"
+#include "shared/error.h"
 
 #include "singletons.h"
 #include "short_game.h"

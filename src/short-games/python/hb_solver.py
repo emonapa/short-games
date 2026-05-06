@@ -15,7 +15,7 @@ from short_games import RawGameSolver, void_ptr_to
 DEFAULT_HB_LIB_PATH = "../../../build/short-games/hackenbush/libhackenbush.so"
 
 MAX_VERTICES = 128
-MAX_EDGES = 256
+MAX_EDGES = 128
 
 EDGE_BLUE = 0
 EDGE_RED = 1

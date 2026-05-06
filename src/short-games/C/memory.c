@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include "error.h"
+#include "shared/error.h"
 
 size_t get_nearest_power_of_2(size_t target_elems) {
     if (target_elems == 0) warning("Trying to get nearest power of two on 0");

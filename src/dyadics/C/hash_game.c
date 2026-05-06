@@ -1,12 +1,14 @@
 #include <string.h>
+
 #include "hash_game.h"
+#include "raw_game.h"
 
 #define HASH_GAME_SIZE (1u << 18) // 262144 položek, open addressing
 #define HASH_GAME_MASK (HASH_GAME_SIZE - 1)
 
 typedef struct {
     uint8_t   used;
-    PositionKey key;
+    edge_mask_t key;
     Dyadic    value;
 } HashEntry;
 
@@ -27,12 +29,8 @@ void hash_game_init(void) {
     memset(hash_table, 0, sizeof(hash_table));
 }
 
-static int position_key_equal(const PositionKey *a, const PositionKey *b) {
-    return a->live_mask == b->live_mask;
-}
-
-int hash_game_lookup(const PositionKey *key, Dyadic *out_value) {
-    uint64_t h = fnv1a_u64(key->live_mask);
+int hash_game_lookup(edge_mask_t key, Dyadic *out_value) {
+    uint64_t h = fnv1a_u64(key);
     uint32_t idx = (uint32_t)(h & HASH_GAME_MASK);
 
     for (uint32_t i = 0; i < HASH_GAME_SIZE; ++i) {
@@ -40,7 +38,8 @@ int hash_game_lookup(const PositionKey *key, Dyadic *out_value) {
         if (!hash_table[j].used) {
             return 0; // nenalezeno
         }
-        if (position_key_equal(&hash_table[j].key, key)) {
+
+        if (hash_table[j].key == key) {
             if (out_value) *out_value = hash_table[j].value;
             return 1;
         }
@@ -48,16 +47,15 @@ int hash_game_lookup(const PositionKey *key, Dyadic *out_value) {
     return 0;
 }
 
-void hash_game_insert(const PositionKey *key, Dyadic value) {
-    uint64_t h = fnv1a_u64(key->live_mask);
+void hash_game_insert(edge_mask_t key, Dyadic value) {
+    uint64_t h = fnv1a_u64(key);
     uint32_t idx = (uint32_t)(h & HASH_GAME_MASK);
 
     for (uint32_t i = 0; i < HASH_GAME_SIZE; ++i) {
         uint32_t j = (idx + i) & HASH_GAME_MASK;
-        if (!hash_table[j].used ||
-            position_key_equal(&hash_table[j].key, key)) {
+        if (!hash_table[j].used || (hash_table[j].key == key)) {
             hash_table[j].used = 1;
-            hash_table[j].key = *key;
+            hash_table[j].key = key;
             hash_table[j].value = value;
             return;
         }

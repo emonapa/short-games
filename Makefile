@@ -5,34 +5,34 @@ LDFLAGS = -lm -ldl -lrt -lX11 -O3
 SRC_DIR = src
 BUILD_DIR = build
 
-SURREALS_DIR = $(SRC_DIR)/surreals/C
+DYADICS_DIR = $(SRC_DIR)/dyadics/C
 SHORTS_DIR = $(SRC_DIR)/short-games/C
 SHORTS_GAMES_DIR = $(SHORTS_DIR)/games
-SHORTS_INCLUDE = -I$(SHORTS_DIR)
+SHORTS_INCLUDE = -I$(SHORTS_DIR)/shared
 
-SURREALS_BUILD = $(BUILD_DIR)/surreals
+DYADICS_BUILD = $(BUILD_DIR)/dyadics
 SHORTS_BUILD = $(BUILD_DIR)/short-games
 SHORTS_SHARED_BUILD = $(SHORTS_BUILD)/shared
 
-SURREALS_SRC = $(wildcard $(SURREALS_DIR)/*.c)
+DYADICS_SRC = $(wildcard $(DYADICS_DIR)/*.c)
 SHORTS_CORE_SRC = $(wildcard $(SHORTS_DIR)/*.c)
 
 GAME_DIRS = $(wildcard $(SHORTS_GAMES_DIR)/*)
 GAME_NAMES = $(notdir $(GAME_DIRS))
 
-SURREALS_OBJ = $(patsubst $(SURREALS_DIR)/%.c,$(SURREALS_BUILD)/%.o,$(SURREALS_SRC))
-SURREALS_PIC_OBJ = $(patsubst $(SURREALS_DIR)/%.c,$(SURREALS_BUILD)/%.pic.o,$(SURREALS_SRC))
+DYADICS_OBJ = $(patsubst $(DYADICS_DIR)/%.c,$(DYADICS_BUILD)/%.o,$(DYADICS_SRC))
+DYADICS_PIC_OBJ = $(patsubst $(DYADICS_DIR)/%.c,$(DYADICS_BUILD)/%.pic.o,$(DYADICS_SRC))
 
 SHORTS_SHARED_OBJ = $(patsubst $(SHORTS_DIR)/%.c,$(SHORTS_SHARED_BUILD)/%.o,$(SHORTS_CORE_SRC))
 SHORTS_SHARED_PIC_OBJ = $(patsubst $(SHORTS_DIR)/%.c,$(SHORTS_SHARED_BUILD)/%.pic.o,$(SHORTS_CORE_SRC))
 
-SURREALS_DEP = $(SURREALS_OBJ:.o=.d)
-SURREALS_PIC_DEP = $(SURREALS_PIC_OBJ:.o=.d)
+DYADICS_DEP = $(DYADICS_OBJ:.o=.d)
+DYADICS_PIC_DEP = $(DYADICS_PIC_OBJ:.o=.d)
 
 SHORTS_SHARED_DEP = $(SHORTS_SHARED_OBJ:.o=.d)
 SHORTS_SHARED_PIC_DEP = $(SHORTS_SHARED_PIC_OBJ:.o=.d)
 
-SURREALS_LIB = $(SURREALS_BUILD)/libsurreals.so
+DYADICS_LIB = $(DYADICS_BUILD)/libdyadics.so
 
 GAME_LIBS = $(foreach game,$(GAME_NAMES),$(SHORTS_BUILD)/$(game)/lib$(game).so)
 
@@ -40,17 +40,17 @@ GAME_LIBS = $(foreach game,$(GAME_NAMES),$(SHORTS_BUILD)/$(game)/lib$(game).so)
 
 all: lib
 
-lib: $(SURREALS_LIB) $(GAME_LIBS)
+lib: $(DYADICS_LIB) $(GAME_LIBS)
 
-$(SURREALS_LIB): $(SURREALS_PIC_OBJ)
+$(DYADICS_LIB): $(DYADICS_PIC_OBJ)
 	@mkdir -p $(@D)
 	$(CC) -shared $^ -o $@ $(LDFLAGS)
 
-$(SURREALS_BUILD)/%.o: $(SURREALS_DIR)/%.c
+$(DYADICS_BUILD)/%.o: $(DYADICS_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -MMD -MP -c $< -o $@
 
-$(SURREALS_BUILD)/%.pic.o: $(SURREALS_DIR)/%.c
+$(DYADICS_BUILD)/%.pic.o: $(DYADICS_DIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -fPIC -MMD -MP -c $< -o $@
 
@@ -85,8 +85,8 @@ $(foreach game,$(GAME_NAMES),$(eval $(call GAME_TEMPLATE,$(game))))
 clean:
 	rm -rf $(BUILD_DIR)
 
--include $(SURREALS_DEP)
--include $(SURREALS_PIC_DEP)
+-include $(DYADICS_DEP)
+-include $(DYADICS_PIC_DEP)
 -include $(SHORTS_SHARED_DEP)
 -include $(SHORTS_SHARED_PIC_DEP)
 -include $(wildcard $(SHORTS_BUILD)/*/*.d)
