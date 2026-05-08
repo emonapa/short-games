@@ -33,13 +33,14 @@ int add_count = 0;
 int make_count = 0;
 int info_count = 100000000;
 
-float g_memory_multiplier = 0.5;
+// debatable if needed, see da_free in the solve function
+//float g_memory_multiplier = 0.5;
 
 void short_game_init(float memory_multiplier) {
     if (memory_multiplier > 1 || memory_multiplier <= 0)
         error_exit(ERR_OTHER, "%f is invalid fraction argument.\n", memory_multiplier);
 
-    g_memory_multiplier = memory_multiplier;
+    //g_memory_multiplier = memory_multiplier;
     size_t free_ram_bytes = get_size_free_memory();
 
     size_t ram_to_use = free_ram_bytes * memory_multiplier;
@@ -100,131 +101,7 @@ Game* game_make(Game **left, int L_count, Game **right, int R_count) {
     return g;
 }
 
-//#define GEQ_RECURSIVE
 
-#ifndef GEQ_RECURSIVE
-// Explicit stack frame used to avoid recursive calls in game_geq.
-typedef struct {
-    Game *G;
-    Game *H;
-    int stage; // 0 = init, 1 = G->right loop, 2 = H->left loop
-    int i;     // loop iterator
-} GeqFrame;
-
-
-int game_geq(Game *G_root, Game *H_root) {
-    if (G_root == NULL || H_root == NULL) error_exit(ERR_NULL_POINTER, "");
-
-    uint8_t first_memo;
-    if (game_geq_cache_get(G_root, H_root, &first_memo)) return first_memo;
-
-    TStack stack;
-    stack_init(&stack, sizeof(GeqFrame));
-
-    GeqFrame root = { G_root, H_root, 0, 0 };
-    Push(&stack, &root);
-
-    // last_ret passes the return value from a child frame to its parent.
-    // -1 means that no child return value is waiting to be processed.
-    int last_ret = -1;
-    size_t size_stack = 0;
-    while (!IsEmpty(&stack)) {
-        GeqFrame *f = (GeqFrame *)Top(&stack);
-        // STAGE 0: Initialization, base case checks, and memoization.
-        if (f->stage == 0) {
-            if (f->G == f->H) {
-                last_ret = 1;
-                Pop(&stack);
-                continue;
-            }
-
-            uint8_t memo;
-            if (game_geq_cache_get(f->G, f->H, &memo)) {
-                last_ret = (int)memo;
-                Pop(&stack);
-                continue;
-            }
-
-            //TODO
-            eq_count++;
-            if (eq_count % info_count == 0)
-                printf("[INFO] eq count %d.   *%d\n", (int)(eq_count/info_count), info_count);
-
-            if (stack.size > size_stack) size_stack = stack.size;
-
-            f->stage = 1;
-            f->i = 0;
-            continue;
-        }
-
-        // STAGE 1: Iterate through f->G->right[i].
-        if (f->stage == 1) {
-            // If control has just returned from a child frame, check its result.
-            if (last_ret != -1) {
-                if (last_ret == 1) { // Child test (H >= G->right) returned true.
-                    game_geq_cache_put(f->G, f->H, 0);
-                    last_ret = 0; // Return false to the parent.
-                    Pop(&stack);
-                    continue;
-                }
-                last_ret = -1; // Child returned false, continue with the next option.
-            }
-
-            // Continue scanning right options of G if any remain.
-            if (f->i < f->G->R_count) {
-                Game *next_G = f->H;
-                Game *next_H = f->G->right[f->i];
-
-                f->i++;
-
-                GeqFrame child = { next_G, next_H, 0, 0 };
-                Push(&stack, &child);
-                continue;
-            }
-
-            // All right options of G passed; move to STAGE 2.
-            f->stage = 2;
-            f->i = 0;
-            continue;
-        }
-
-        // STAGE 2: Iterate through f->H->left[i].
-        if (f->stage == 2) {
-            // Check the result returned by the previous child frame.
-            if (last_ret != -1) {
-                if (last_ret == 1) { // Child test (H->left >= G) returned true.
-                    game_geq_cache_put(f->G, f->H, 0);
-                    last_ret = 0; // Return false to the parent.
-                    Pop(&stack);
-                    continue;
-                }
-                last_ret = -1;
-            }
-
-            // Continue scanning left options of H if any remain.
-            if (f->i < f->H->L_count) {
-                Game *next_G = f->H->left[f->i];
-                Game *next_H = f->G;
-
-                f->i++;
-
-                GeqFrame child = { next_G, next_H, 0, 0 };
-                Push(&stack, &child);
-                continue;
-            }
-
-            // All tests passed, therefore G >= H.
-            game_geq_cache_put(f->G, f->H, 1);
-            last_ret = 1;
-            Pop(&stack);
-            continue;
-        }
-    }
-
-    stack_dtor(&stack);
-    return last_ret;
-}
-#else
 int game_geq(Game *G, Game *H) {
     if (G == NULL || H == NULL) error_exit(ERR_NULL_POINTER, "");
 
@@ -268,7 +145,6 @@ int game_geq(Game *G, Game *H) {
     game_geq_cache_put(G, H, 1);
     return 1;
 }
-#endif
 
 int game_eq(Game *G, Game *H) {
     return game_geq(G, H) && game_geq(H, G);
@@ -465,11 +341,6 @@ Game* game_add(Game *G, Game *H) {
     if (G->L_count == 0 && G->R_count == 0) return H;
     if (H->L_count == 0 && H->R_count == 0) return G;
 
-    // Normalize the cache key using commutativity.
-    if ((uintptr_t)G > (uintptr_t)H) {
-        Game *tmp = G; G = H; H = tmp;
-    }
-
     Game *memo = NULL;
     if (game_add_cache_get(G, H, &memo)) return memo;
 
@@ -580,10 +451,10 @@ Game* solve(void *raw_game, void *position) {
        printf("-------------[%d] Průchod-------------\n", i);
        print_stats();
 #endif
-        // Components are usually different, so the cache could be reset here.
-        // Hints and educational mode would become extremely slow if this were enabled.
-        //solver_free();
-        //solver_initialize(g_memory_multiplier);
+       // Components are usually different, so the cache could be reset here,
+       // but hints and educational mode would become extremely slow if this were enabled.
+       //solver_free();
+       //solver_initialize(g_memory_multiplier);
     }
 #ifdef PRINT_RESULT
     printf("=========================================================\n");
@@ -596,10 +467,8 @@ Game* solve(void *raw_game, void *position) {
     printf("Result: %s", game_string);
 #endif
 
-    for (int i = 0; i < count; i++) {
-        free(sub_games[i]);
-    }
-    // This freeing strategy is possible here, but it makes the code less general.
+    for (int i = 0; i < count; i++) free(sub_games[i]);
+    // This freeing is possible here, but it makes the code less general, so just leak it!
     //da_free(sub_games);
 
     return total_sum;

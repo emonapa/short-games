@@ -9,6 +9,10 @@
 #include "dyadics.h"
 #include "hash_game.h"
 
+void solver_initialize(const BaseGraph *g) {
+    hash_game_init();
+}
+
 static Dyadic reduce_dyadic(Dyadic x) {
     if (x.num == 0) {
         x.exp = 0;
@@ -117,7 +121,41 @@ double dyadic_to_double(Dyadic a) {
     return (a.num / pow(2, a.exp));
 }
 
+//#define SOLVE_ITERATIONS
+#ifndef SOLVE_ITERATIONS
+Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
+    Dyadic memo;
+    if (hash_game_lookup(live_mask, &memo)) return memo;
+    if (!live_mask) return dyadic_make(0, 0);
 
+    int has_left = 0, has_right = 0;
+    Dyadic l_max, r_min;
+
+    for (int e = 0; e < g->num_edges; e++) {
+        if (!IS_BIT_ACTIVE(live_mask, e)) continue;
+
+        edge_mask_t child = cleanup_position(g, RESET_BIT_AT(live_mask, e));
+        Dyadic val = solve(g, child);
+
+        if (g->edges[e].color == EDGE_BLUE) {
+            if (!has_left  || dyadic_cmp(val, l_max) > 0) { l_max = val; has_left  = 1; }
+        } else {
+            if (!has_right || dyadic_cmp(val, r_min) < 0) { r_min = val; has_right = 1; }
+        }
+    }
+
+    Dyadic result;
+    if      (!has_left && !has_right)              result = dyadic_make(0, 0);
+    else if ( has_left && !has_right)              result = dyadic_simplest_above(l_max);
+    else if (!has_left &&  has_right)              result = dyadic_simplest_below(r_min);
+    else if (dyadic_cmp(l_max, r_min) < 0)        result = dyadic_simplest_between(l_max, r_min);
+    else                                           result = l_max;
+
+    hash_game_insert(live_mask, result);
+    return result;
+}
+
+#else
 // Stack frame pro iterativní výpočet hodnoty
 typedef struct {
     edge_mask_t live_mask;
@@ -132,10 +170,6 @@ typedef struct {
 
     Dyadic   result;           // hotová hodnota pro tuto pozici
 } SolverFrame;
-
-void solver_initialize(const BaseGraph *g) {
-    hash_game_init();
-}
 
 // Iterativní výpočet hodnoty pozice (bez rekurze)
 Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
@@ -200,38 +234,4 @@ Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
 
     return dyadic_make(0, 0);
 }
-
-/*
-Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
-    PositionKey key = { live_mask };
-    Dyadic memo;
-    if (hash_game_lookup(&key, &memo)) return memo;
-    if (!live_mask) return dyadic_make(0, 0);
-
-    int has_left = 0, has_right = 0;
-    Dyadic l_max, r_min;
-
-    for (int e = 0; e < g->num_edges; e++) {
-        if (!IS_BIT_ACTIVE(live_mask, e)) continue;
-
-        edge_mask_t child = cleanup_position(g, RESET_BIT_AT(live_mask, e));
-        Dyadic val = solve(g, child);
-
-        if (g->edges[e].color == EDGE_BLUE) {
-            if (!has_left  || dyadic_cmp(val, l_max) > 0) { l_max = val; has_left  = 1; }
-        } else {
-            if (!has_right || dyadic_cmp(val, r_min) < 0) { r_min = val; has_right = 1; }
-        }
-    }
-
-    Dyadic result;
-    if      (!has_left && !has_right)              result = dyadic_make(0, 0);
-    else if ( has_left && !has_right)              result = dyadic_simplest_above(l_max);
-    else if (!has_left &&  has_right)              result = dyadic_simplest_below(r_min);
-    else if (dyadic_cmp(l_max, r_min) < 0)        result = dyadic_simplest_between(l_max, r_min);
-    else                                           result = l_max;
-
-    hash_game_insert(&key, result);
-    return result;
-}
-*/
+#endif

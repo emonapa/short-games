@@ -47,17 +47,21 @@ hb_io.load_and_export_png(scene, JSON_FOLDER + "A.hbg.json", PNG_FOLDER + "A.png
 hb_io.load_and_export_png(scene, JSON_FOLDER + "B.hbg.json", PNG_FOLDER + "B.png", fixedX=500, fixedY=570)
 
 # --chapter fuzzy hodnoty------------------------------------------------
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_one.hbg.json", PNG_FOLDER + "star_minus_one.png", fixedX=500)
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_half.hbg.json", PNG_FOLDER + "star_minus_half.png", fixedX=500, finalY=450)
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_sixteenth.hbg.json", PNG_FOLDER + "star_minus_sixteenth.png", fixedX=500, finalY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_one.hbg.json", PNG_FOLDER + "star_minus_one.png", fixedX=500, fixedY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_half.hbg.json", PNG_FOLDER + "star_minus_half.png", fixedX=500, fixedY=850, finalY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_minus_sixteenth.hbg.json", PNG_FOLDER + "star_minus_sixteenth.png", fixedX=500, fixedY=850, finalY=450)
 
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_one.hbg.json", PNG_FOLDER + "star_plus_one.png", fixedX=500)
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_half.hbg.json", PNG_FOLDER + "star_plus_half.png", fixedX=500, finalY=450)
-hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_sixteenth.hbg.json", PNG_FOLDER + "star_plus_sixteenth.png", fixedX=500, finalY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_one.hbg.json", PNG_FOLDER + "star_plus_one.png", fixedX=500, fixedY=850, finalY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_half.hbg.json", PNG_FOLDER + "star_plus_half.png", fixedX=500, fixedY=850, finalY=450)
+hb_io.load_and_export_png(scene, JSON_FOLDER + "star_plus_sixteenth.hbg.json", PNG_FOLDER + "star_plus_sixteenth.png", fixedX=500, fixedY=850, finalY=450)
+# -----------------------------------------------------------------------
 
+# --dve infinitezimalni davaji hodnotu vetsi jak 0-----------------------
 hb_io.load_and_export_png(scene, JSON_FOLDER + "flower_one.hbg.json", PNG_FOLDER + "flower_one.png", fixedY=450)
 hb_io.load_and_export_png(scene, JSON_FOLDER + "flower_two.hbg.json", PNG_FOLDER + "flower_two.png", fixedY=450)
+# -----------------------------------------------------------------------
 
+# --neformalni predstaveni dyadickyh cisel
 hb_io.load_and_export_png(scene, JSON_FOLDER + "one.hbg.json", PNG_FOLDER + "one.png", fixedX=500, finalY=390)
 hb_io.load_and_export_png(scene, JSON_FOLDER + "minus_one.hbg.json", PNG_FOLDER + "minus_one.png", fixedX=500, finalY=390)
 hb_io.load_and_export_png(scene, JSON_FOLDER + "one_minus_one.hbg.json", PNG_FOLDER + "one_minus_one.png", fixedX=500, finalY=390)

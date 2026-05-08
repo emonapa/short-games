@@ -21,11 +21,11 @@ def qcolor(c: RGB) -> QColor:
 
 @dataclass(frozen=True)
 class HBTheme:
-    # ── Window ────────────────────────────────────────────────────────────────
+    # -- Window ----------------------------------------------------------------
     win_size_x: int = 1200
     win_size_y: int = 900
 
-    # ── Core palette ──────────────────────────────────────────────────────────
+    # -- Core palette ----------------------------------------------------------
     window_bg: RGB = (37, 37, 37)
 
     blue:  RGB = (3, 105, 143)
@@ -40,16 +40,16 @@ class HBTheme:
     vertex_ground:  RGB = (106, 50, 159)
     vertex_outline: RGB = (0, 0, 0)
 
-    # ── Settings panel colours ────────────────────────────────────────────────
+    # -- Settings panel colours ------------------------------------------------
     settings_bg:      RGB = (47, 47, 47)
     settings_card_bg: RGB = (60, 60, 60)
 
-    # ── Sizes ─────────────────────────────────────────────────────────────────
+    # -- Sizes -----------------------------------------------------------------
     edge_width:      int = 8
     vertex_outline_w: int = 2
     ground_line_w:   int = 2
 
-    # ── Global QSS tokens ─────────────────────────────────────────────────────
+    # -- Global QSS tokens -----------------------------------------------------
     text: str = "white"
 
     btn_bg:       str = "#444"
@@ -73,7 +73,7 @@ class HBTheme:
     icon_btn_font_size: int = 25
     icon_settings_font_size = 32
 
-    # ── Stylesheet ────────────────────────────────────────────────────────────
+    # -- Stylesheet ------------------------------------------------------------
 
     def stylesheet(self) -> str:
         return """
@@ -101,7 +101,7 @@ class HBTheme:
             "btn_bg_hover": self.btn_bg_hover,
         })
 
-    # ── QColor helpers ────────────────────────────────────────────────────────
+    # -- QColor helpers --------------------------------------------------------
 
     def blue_q(self)            -> QColor: return qcolor(self.blue)
     def red_q(self)             -> QColor: return qcolor(self.red)
@@ -118,7 +118,7 @@ class HBTheme:
     def settings_bg_css(self)       -> str: return rgb_css(self.settings_bg)
     def settings_card_bg_css(self)  -> str: return rgb_css(self.settings_card_bg)
 
-    # ── Widget style snippets ─────────────────────────────────────────────────
+    # -- Widget style snippets -------------------------------------------------
 
     def player_btn_style(self, team: str) -> str:
         bg = {"blue": self.blue_q(), "red": self.red_q()}.get(team, self.green_q()).name()
@@ -155,7 +155,7 @@ class HBTheme:
                  bw=self.border_w, bc=self.border_color, r=self.btn_radius)
 
 
-# ── ThemeManager ──────────────────────────────────────────────────────────────
+# -- ThemeManager --------------------------------------------------------------
 
 class ThemeManager(QObject):
     changed = Signal(object)

@@ -342,8 +342,8 @@ static void buffer_append(const char *text) {
 // Writes the value of a surreal number to the buffer.
 static void game_get_string_recursive(Game *G, enum output_format format) {
     if (!G) return;
-
     if (G == val_zero) { buffer_append("0"); return; }
+
     if (format == FORMAT_FORMATED) {
         char temp[64];
 

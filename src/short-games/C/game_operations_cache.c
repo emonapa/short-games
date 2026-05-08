@@ -70,12 +70,22 @@ void game_operations_cache_free_all(void) {
     game_add_cache = NULL;
 }
 
+static void normalize_pair(uintptr_t *a, uintptr_t *b) {
+    if (*a > *b) {
+        uintptr_t tmp = *a;
+        *a = *b;
+        *b = tmp;
+    }
+}
+
 // add memo
 int game_add_cache_get(Game *A, Game *B, Game **out) {
     if (A == NULL || B == NULL) error_exit(ERR_NULL_POINTER, "");
 
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;
+    normalize_pair(&a, &b);
+
     size_t idx = hash_pair(a, b, add_memo_mask);
 
     for (size_t i = 0; i < PROBE_LIMIT; i++) {
@@ -103,6 +113,8 @@ void game_add_cache_put(Game *A, Game *B, Game *value) {
 
     uintptr_t a = (uintptr_t)A;
     uintptr_t b = (uintptr_t)B;
+    normalize_pair(&a, &b);
+
     size_t idx = hash_pair(a, b, add_memo_mask);
 
     for (size_t i = 0; i < PROBE_LIMIT; i++) {

@@ -3,14 +3,27 @@
 
 #include <stdint.h>
 
-#define MAX_VERTICES  128
-#define MAX_EDGES     128
+#ifdef __SIZEOF_INT128__
+    typedef unsigned __int128 edge_mask_t;
+    #define MAX_EDGES    128
+    #define MAX_VERTICES 128
+#else
+    #define MAX_EDGES    64
+    #define MAX_VERTICES 64
+    typedef unsigned uint64_t edge_mask_t;
+#endif
 
-typedef unsigned __int128 edge_mask_t;
-
-// Posun pro uint128
 #define BIT(e) (((edge_mask_t)1) << (e))
-#define IS_BIT_ACTIVE(live_mask, e) ((e >= 128) ? 0 : ((live_mask >> e) & 1))
+
+#define IS_BIT_ACTIVE(live_mask, e) \
+    (((e) >= MAX_EDGES) ? 0 : ((((live_mask) >> (e)) & (edge_mask_t)1) != 0))
+
+#define SET_BIT_AT(live_mask, e) \
+    (((e) < MAX_EDGES) ? ((live_mask) | BIT(e)) : (live_mask))
+
+#define RESET_BIT_AT(live_mask, e) \
+    (((e) < MAX_EDGES) ? ((live_mask) & ~BIT(e)) : (live_mask))
+
 
 typedef enum {
     EDGE_BLUE = 0,
