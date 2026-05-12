@@ -154,7 +154,7 @@ static int get_nimber_value(Game *G) {
     return is_nimber ? n : -1;
 }
 
-// These surreal numbers are not expected to be deeply nested
+// These short games are not expected to be deeply nested
 // relative to the solver limits, so recursion is acceptable here.
 // -----------------------------------------------------------------
 // Helper functions
@@ -339,7 +339,7 @@ static void buffer_append(const char *text) {
     }
 }
 
-// Writes the value of a surreal number to the buffer.
+// Writes the value of a short game to the buffer.
 static void game_get_string_recursive(Game *G, enum output_format format) {
     if (!G) return;
     if (G == val_zero) { buffer_append("0"); return; }

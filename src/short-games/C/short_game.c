@@ -11,13 +11,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include "config.h"
+#include "memory.h"
+
 #include "shared/error.h"
 #include "shared/stack.h"
 #include "shared/darray.h"
 #include "shared/raw_game.h"
-
-#include "config.h"
-#include "memory.h"
 
 #include "game_intern_cache.h"
 #include "game_operations_cache.h"
@@ -403,6 +403,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
 
             child = solve_component(raw_game, child_position);
             da_push(left_opts, child);
+            free(child_position);
         }
         if (can_right_move(raw_game, position, e)) {
             Position_t child_position = do_move_right(raw_game, position, e);
@@ -410,6 +411,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
 
             child = solve_component(raw_game, child_position);
             da_push(right_opts, child);
+            free(child_position);
         }
     }
 

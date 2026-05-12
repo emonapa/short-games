@@ -251,7 +251,7 @@ class CalculatorPanel(QWidget):
         # Game A -> Game B
         row1 = QHBoxLayout()
         self.unary_input = _input("Game G")
-        self.unary_op    = _combo(["−G  (negace)", "Canonization", "Reduced canonical form"])
+        self.unary_op    = _combo(["−G  (negace)", "Canonization", "Is infinitezimal"])
         calc1_btn        = _btn("=")
         row1.addWidget(self.unary_input, 3)
         row1.addWidget(self.unary_op, 2)
@@ -355,12 +355,19 @@ class CalculatorPanel(QWidget):
             g = GameParser(s).parse(self.unary_input.text())
             if self.unary_op.currentIndex() == 0: # negace
                 result = s.game_negate(g)
+                self.unary_result.setText(self._str(result, self.unary_raw))
             elif self.unary_op.currentIndex() == 1: # kanonizace
                 result = s.game_canonicalize(g)
+                self.unary_result.setText(self._str(result, self.unary_raw))
             elif self.unary_op.currentIndex() == 2: # reduced canonical form
                 result_cooling = s.cool_with_star(g)
                 result = s.star_projection(result_cooling)
-            self.unary_result.setText(self._str(result, self.unary_raw))
+                result_text = self._str(result, self.unary_raw)
+                if (result_text == "0"):
+                    self.unary_result.setText("True")
+                else:
+                    self.unary_result.setText("False")
+
         except Exception as e:
             self.unary_result.setText(f"Error: {e}")
 

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "vertices": [
+    [
+      579.0,
+      810.0
+    ],
+    [
+      580.0,
+      489.0
+    ]
+  ],
+  "edges": [
+    [
+      0,
+      1,
+      2
+    ]
+  ],
+  "current_color": 2,
+  "pending_u": null
+}

@@ -19,6 +19,14 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+HACKENBUSH_DIR = HERE / "hackenbush"
+
+if str(HACKENBUSH_DIR) not in sys.path:
+    sys.path.insert(0, str(HACKENBUSH_DIR))
+
 import hb_solver
 import hb_io
 import hb_education
@@ -86,7 +94,7 @@ class MainWindow(QMainWindow):
         # --- TLAČÍTKA HRÁČE A EDITACE ---
         self.player_btn = QPushButton()
         self.player_btn.setFixedSize(40, 40)
-        self.player_btn.setToolTip("Kliknutím přepneš hráče")
+        self.player_btn.setToolTip("Clicking swithces the player playing")
         self.player_btn.clicked.connect(self._manual_turn_toggle)
 
         self.edit_btn = QPushButton()
@@ -140,7 +148,7 @@ class MainWindow(QMainWindow):
         )
         self.menu_btn.clicked.connect(self._show_menu)
 
-        self.result_lbl = QLabel("Vyhrává: ")
+        self.result_lbl = QLabel("Wins: ")
         self.result_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
         # --- PLAY TLAČÍTKA ---

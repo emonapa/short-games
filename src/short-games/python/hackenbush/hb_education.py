@@ -11,17 +11,17 @@ class EduBubble(QGraphicsItem):
         self.is_reversible = is_reversible
         self.setZValue(50.0)
 
-        #self.font_size = 9
-        self.font_size = 29
+        self.font_size = 14
+        #self.font_size = 29
 
         font = QFont("Consolas", self.font_size, QFont.Bold)
         metrics = QFontMetrics(font)
         text_width = metrics.horizontalAdvance(self.text)
 
-        #self.rect_height = 20
-        self.rect_height = 90
-        #self.rect_width = max(36, text_width + 16) # Minimálně kulaté
-        self.rect_width = 1.5*text_width + 90 # Minimálně kulaté
+        self.rect_height = 27
+        #self.rect_height = 90
+        self.rect_width = max(36, text_width + 16) # Minimálně kulaté
+        #self.rect_width = 1.5*text_width + 90 # Minimálně kulaté
 
         self.offset_x = -self.rect_width / 2
         self.offset_y = -self.rect_height / 2

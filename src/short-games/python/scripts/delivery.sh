@@ -24,6 +24,6 @@ cp "${LIB_SRC}" "${DIST_APP_DIR}/libhackenbush.so"
 cp -a "${FIGS_SRC}" "${DIST_APP_DIR}/figs"
 (cd "${DIST_DIR}" && zip -r "${APP_NAME}.zip" "${APP_NAME}.dist")
 
-echo "Hotovo"
-echo "Spusteni:"
+echo "Done"
+echo "Run with:"
 echo "./${DIST_APP_DIR}/${APP_NAME}.bin"

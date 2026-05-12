@@ -8,15 +8,15 @@
     #define MAX_EDGES    128
     #define MAX_VERTICES 128
 #else
+    typedef unsigned uint64_t edge_mask_t;
     #define MAX_EDGES    64
     #define MAX_VERTICES 64
-    typedef unsigned uint64_t edge_mask_t;
 #endif
 
 #define BIT(e) (((edge_mask_t)1) << (e))
 
 #define IS_BIT_ACTIVE(live_mask, e) \
-    (((e) >= MAX_EDGES) ? 0 : ((((live_mask) >> (e)) & (edge_mask_t)1) != 0))
+    (((e) >= MAX_EDGES) ? 0 : (int)(((live_mask) >> (e)) & (edge_mask_t)1))
 
 #define SET_BIT_AT(live_mask, e) \
     (((e) < MAX_EDGES) ? ((live_mask) | BIT(e)) : (live_mask))

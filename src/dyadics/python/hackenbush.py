@@ -7,20 +7,22 @@ from typing import List, Optional
 import ctypes
 from ctypes import c_uint8, c_uint64, c_longlong, c_int, Structure
 
-from PySide6.QtCore import Qt, QPointF, QTimer, QRectF
-from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath
+import hb_io
+
+from PySide6.QtCore import Qt, QPointF, QTimer, QRectF, QSize
+from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QIcon
 from PySide6.QtWidgets import (
     QApplication, QGraphicsEllipseItem, QGraphicsScene,
     QGraphicsView, QHBoxLayout, QLabel, QMainWindow,
-    QPushButton, QVBoxLayout, QWidget, QGraphicsPathItem, QGraphicsItem,
+    QPushButton, QVBoxLayout, QWidget, QGraphicsPathItem, QGraphicsItem, QFileDialog,
 )
 
-MAX_VERTICES = 32
+MAX_VERTICES = 64
 MAX_EDGES    = 64
 EDGE_BLUE    = 0
 EDGE_RED     = 1
 
-# ── C structures ──────────────────────────────────────────────────────────────
+# -- C structures --------------------------------------------------------------
 
 class CEdge(Structure):
     _fields_ = [("u", c_uint8), ("v", c_uint8), ("color", c_int)]
@@ -35,7 +37,7 @@ class CBaseGraph(Structure):
 class CDyadic(Structure):
     _fields_ = [("num", c_longlong), ("exp", c_int)]
 
-# ── Library loader ────────────────────────────────────────────────────────────
+# -- Library loader ------------------------------------------------------------
 
 def load_library() -> ctypes.CDLL:
     here     = os.path.abspath(os.path.dirname(__file__))
@@ -56,7 +58,7 @@ def load_library() -> ctypes.CDLL:
     lib.cleanup_position.restype   = c_uint64
     return lib
 
-# ── Scene ─────────────────────────────────────────────────────────────────────
+# -- Scene ---------------------------------------------------------------------
 
 blue_color  = QColor(3, 105, 143)
 red_color   = QColor(134, 0, 55)
@@ -110,11 +112,12 @@ class GraphScene(QGraphicsScene):
 
         self.edit_mode = False
         self.on_build_color_changed = None
+        self.cleanup_lib = None
         self.trash_bin = []
 
         self._draw_ground()
 
-    # ── Drawing ───────────────────────────────────────────────────────────────
+    # -- Drawing ---------------------------------------------------------------
 
     def _draw_ground(self) -> None:
         self.addRect(QRectF(-10000, self.ground_y, 20000, 2000),
@@ -132,7 +135,7 @@ class GraphScene(QGraphicsScene):
         self.addItem(item)
         self.vertex_items[idx] = item
 
-    # ── Mouse ─────────────────────────────────────────────────────────────────
+    # -- Mouse -----------------------------------------------------------------
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.RightButton:
@@ -199,7 +202,7 @@ class GraphScene(QGraphicsScene):
                     if self._is_valid_cut(e.color):
                         cut = i; break
             if cut is not None:
-                self._execute_cut(cut)
+                self._execute_cut(cut, lib=self.cleanup_lib)
             self.active_slashes.append(self.slash_item)
             self.slash_item = None
             self.slash_points = []
@@ -215,7 +218,7 @@ class GraphScene(QGraphicsScene):
             self.on_build_color_changed(new)
         event.accept()
 
-    # ── Game logic ────────────────────────────────────────────────────────────
+    # -- Game logic ------------------------------------------------------------
 
     def _is_valid_cut(self, color: int) -> bool:
         if self.edit_mode:
@@ -281,7 +284,7 @@ class GraphScene(QGraphicsScene):
             else:
                 item.setOpacity(op)
 
-    # ── Vertex helpers ────────────────────────────────────────────────────────
+    # -- Vertex helpers --------------------------------------------------------
 
     def _pick_start(self, pos, v_hit):
         if v_hit is not None: return v_hit
@@ -338,7 +341,7 @@ class GraphScene(QGraphicsScene):
         else:
             self.pending_marker.setRect(p.x()-r, p.y()-r, 2*r, 2*r)
 
-    # ── Edge helpers ──────────────────────────────────────────────────────────
+    # -- Edge helpers ----------------------------------------------------------
 
     def _add_edge(self, u, v, color) -> bool:
         if int(self.g.num_edges) >= MAX_EDGES:
@@ -398,7 +401,7 @@ class GraphScene(QGraphicsScene):
         self.edge_items.clear()
         self.parallel_count.clear()
         self.vertex_items = [None] * MAX_VERTICES
-        self.vertex_pos   = [QPointF(0,0)] * MAX_VERTICES
+        self.vertex_pos   = [QPointF(0, 0) for _ in range(MAX_VERTICES)]
         self.is_ground    = [False] * MAX_VERTICES
         self.pending_u    = None
         self.pending_marker = None
@@ -409,7 +412,7 @@ class GraphScene(QGraphicsScene):
         self.current_color = color
 
 
-# ── Main window ───────────────────────────────────────────────────────────────
+# -- Main window ---------------------------------------------------------------
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
@@ -423,6 +426,7 @@ class MainWindow(QMainWindow):
             print(f"Warning: library not loaded: {e}")
 
         self.scene = GraphScene()
+        self.scene.cleanup_lib = self.lib
         self.scene.on_turn_changed       = self._update_player_btn
         self.scene.on_build_color_changed = self._update_build_btn
 
@@ -442,7 +446,7 @@ class MainWindow(QMainWindow):
             QPushButton:hover { background-color: #444; }
         """)
 
-        # ── top bar ──────────────────────────────────────────────────────────
+        # -- top bar ----------------------------------------------------------
         self.playing_lbl = QLabel("Playing:")
         self.playing_lbl.setStyleSheet("font-weight: bold; font-size: 14px;")
 
@@ -451,7 +455,9 @@ class MainWindow(QMainWindow):
         self.player_btn.setToolTip("Click to switch player")
         self.player_btn.clicked.connect(self._toggle_player)
 
-        self.edit_btn = QPushButton("✏")
+        self.edit_btn = QPushButton()
+        self.edit_btn.setIcon(QIcon("figs/edit-mode.svg"))
+        self.edit_btn.setIconSize(QSize(33, 33))
         self.edit_btn.setFixedSize(40, 40)
         self.edit_btn.setToolTip("Edit mode: remove any edge")
         self.edit_btn.clicked.connect(self._toggle_edit)
@@ -463,8 +469,14 @@ class MainWindow(QMainWindow):
         self.build_btn.setFixedSize(40, 40)
         self.build_btn.clicked.connect(self._cycle_build_color)
 
-        self.clear_btn = QPushButton("Clear")
+        self.clear_btn = QPushButton()
+        self.clear_btn.setIcon(QIcon("figs/trash-bin.svg"))
+        self.clear_btn.setIconSize(QSize(33, 33))
+        self.clear_btn.setFixedSize(33, 33)
         self.clear_btn.clicked.connect(self.scene.clear_graph)
+        self.clear_btn.setStyleSheet("""
+            QPushButton { background-color: transparent; border: none; }
+        """)
 
         self.solve_btn = QPushButton("Solve")
         self.solve_btn.clicked.connect(self._solve)
@@ -474,10 +486,18 @@ class MainWindow(QMainWindow):
             "QPushButton:hover { background-color: #509050; }"
         )
 
-        self.result_lbl = QLabel("Value: —")
+        self.save_btn = QPushButton("Save")
+        self.save_btn.clicked.connect(self.save_game)
+
+        self.load_btn = QPushButton("Load")
+        self.load_btn.clicked.connect(self.load_game)
+
+        self.result_lbl = QLabel("Wins:")
         self.result_lbl.setStyleSheet("font-size: 14px;")
 
         top = QHBoxLayout()
+        top.addWidget(self.clear_btn)
+        top.addSpacing(6)
         top.addWidget(self.playing_lbl)
         top.addWidget(self.player_btn)
         top.addWidget(self.edit_btn)
@@ -487,8 +507,8 @@ class MainWindow(QMainWindow):
         top.addStretch(1)
         top.addWidget(self.building_lbl)
         top.addWidget(self.build_btn)
-        top.addSpacing(10)
-        top.addWidget(self.clear_btn)
+        top.addWidget(self.save_btn)
+        top.addWidget(self.load_btn)
 
         root = QVBoxLayout()
         root.addLayout(top)
@@ -502,7 +522,7 @@ class MainWindow(QMainWindow):
         self._update_player_btn()
         self._update_build_btn(self.scene.current_color)
 
-    # ── Slots ─────────────────────────────────────────────────────────────────
+    # -- Slots -----------------------------------------------------------------
 
     def _update_player_btn(self):
         if self.scene.edit_mode:
@@ -545,22 +565,66 @@ class MainWindow(QMainWindow):
 
     def _solve(self):
         if not self.lib:
-            self.result_lbl.setText("Value: solver not loaded")
+            self.result_lbl.setText("Wins: solver not loaded")
             return
         try:
             live = self.scene.compute_live_mask()
             self.lib.solver_initialize(ctypes.byref(self.scene.g))
             val: CDyadic = self.lib.solve(ctypes.byref(self.scene.g), c_uint64(live))
+
             if val.exp >= 0:
                 d = float(val.num) / float(1 << val.exp)
             else:
                 d = float(val.num) * float(1 << (-val.exp))
-            if val.exp == 0:
-                self.result_lbl.setText(f"Value: {val.num}")
+
+            if val.num > 0:
+                winner = "Modrý/Left"
+            elif val.num < 0:
+                winner = "Červený/Right"
             else:
-                self.result_lbl.setText(f"Value: {val.num} / 2^{val.exp}  =  {d:.4f}")
+                winner = "Druhý/Second"
+
+            if val.exp == 0:
+                value = str(val.num)
+            else:
+                value = f"{val.num}/2^{val.exp} = {d:g}"
+
+            self.result_lbl.setText(f"Wins: {winner} ({value})")
         except Exception as e:
-            self.result_lbl.setText(f"Value: error ({e})")
+            self.result_lbl.setText(f"Wins: error ({e})")
+
+    def save_game(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Hackenbush",
+            "",
+            "Hackenbush (*.hbg.json);;JSON (*.json);;All Files (*)",
+        )
+        if not path:
+            return
+        if not path.endswith(".json"):
+            path += ".hbg.json"
+        try:
+            hb_io.save_to_file(self.scene, path)
+            self.result_lbl.setText(f"Saved: {os.path.basename(path)}")
+        except Exception as e:
+            self.result_lbl.setText(f"Save error: {e}")
+
+    def load_game(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Load Hackenbush",
+            "",
+            "Hackenbush (*.hbg.json *.json);;All Files (*)",
+        )
+        if not path:
+            return
+        try:
+            hb_io.load_from_file(self.scene, path)
+            self._update_build_btn(self.scene.current_color)
+            self.result_lbl.setText(f"Loaded: {os.path.basename(path)}")
+        except Exception as e:
+            self.result_lbl.setText(f"Load error: {e}")
 
     # Pass lib to execute_cut so cleanup_position works
     def _cut_with_lib(self, idx):
