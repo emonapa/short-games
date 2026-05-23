@@ -6,9 +6,10 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-# Uprav podle umístění souboru test_hackenbush.py
+# Uprav podle umístění souboru test_hotpotch.py
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "hotpotch"))
 
 import hb_io
 import hb_solver
@@ -16,7 +17,7 @@ import hb_graphics
 from hb_theme import THEME
 
 
-PATH_TO_LIB = "../../../../build/short-games/hackenbush/libhackenbush.so"
+PATH_TO_LIB = "../../../../build/short-games/hotpotch/libhotpotch.so"
 JSON_FOLDER = "./tests_hackenbush/"
 
 DYADICS_PATH = Path(__file__).resolve().parent / "../../../dyadics/python/hackenbush.py"
@@ -29,12 +30,12 @@ if app is None:
 
 def import_dyadics_module():
     path = DYADICS_PATH.resolve()
-    spec = importlib.util.spec_from_file_location("dyadics_hackenbush", path)
+    spec = importlib.util.spec_from_file_location("dyadics_hotpotch", path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot import dyadics hackenbush from {path}")
+        raise ImportError(f"Cannot import dyadics hotpotch from {path}")
 
     module = importlib.util.module_from_spec(spec)
-    sys.modules["dyadics_hackenbush"] = module
+    sys.modules["dyadics_hotpotch"] = module
     spec.loader.exec_module(module)
     return module
 
@@ -137,17 +138,17 @@ def main() -> None:
     dyadics_scene._dyadics_lib = dyadics_lib
 
     tests = [
-        (JSON_FOLDER + "down.hbg.json", "↓"),
         (JSON_FOLDER + "empty_game.hbg.json", "0"),
         (JSON_FOLDER + "half.hbg.json", "0.5"),
         (JSON_FOLDER + "minus_three_fourths.hbg.json", "-0.75"),
         (JSON_FOLDER + "one_fourth.hbg.json", "0.25"),
+        (JSON_FOLDER + "hard_diamond.hbg.json", "-0.375"),
         (JSON_FOLDER + "star.hbg.json", "*"),
         (JSON_FOLDER + "star_minus_half.hbg.json", "-0.5 + *"),
         (JSON_FOLDER + "star_plus_sixteenth.hbg.json", "0.0625 + *"),
-        (JSON_FOLDER + "up.hbg.json", "↑"),
         (JSON_FOLDER + "up_plus_star.hbg.json", "↑ + *"),
-        (JSON_FOLDER + "hard_diamond.hbg.json", "-0.375"),
+        (JSON_FOLDER + "up.hbg.json", "↑"),
+        (JSON_FOLDER + "down.hbg.json", "↓"),
     ]
 
     name_width = max(len(Path(path).name) for path, _ in tests) + 2

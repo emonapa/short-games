@@ -12,7 +12,7 @@ from ctypes import (
 from short_games import RawGameSolver, void_ptr_to
 
 
-DEFAULT_HB_LIB_PATH = "../../../build/short-games/hackenbush/libhackenbush.so"
+DEFAULT_HB_LIB_PATH = "../../../build/short-games/hotpotch/libhotpotch.so"
 
 MAX_VERTICES = 128
 MAX_EDGES = 128

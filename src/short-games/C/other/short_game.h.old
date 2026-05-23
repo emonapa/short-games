@@ -1,7 +1,7 @@
 /*
  * Final bachelors thesis
- * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
- * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ * Title cz: Algoritmy strojového hraní Hotpotche s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hotpotch Using Surreal Numbers
  *
  * Faculty of Information Technology Brno University of Technology
  * Author: Václav Matyáš (xmatyav00)

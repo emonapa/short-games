@@ -1,5 +1,5 @@
-#ifndef HACKENBUSH_H
-#define HACKENBUSH_H
+#ifndef HOTPOTCH_H
+#define HOTPOTCH_H
 
 #include <stdint.h>
 
@@ -52,4 +52,4 @@ void build_adjacency(const BaseGraph *g, edge_mask_t live_mask, uint8_t *deg, ui
 edge_mask_t cleanup_position(const BaseGraph *g, edge_mask_t live_mask);
 
 
-#endif // HACKENBUSH_H
+#endif // HOTPOTCH_H

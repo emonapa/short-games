@@ -22,10 +22,10 @@ from PySide6.QtWidgets import (
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-HACKENBUSH_DIR = HERE / "hackenbush"
+HOTPOTCH_DIR = HERE / "hotpotch_utils"
 
-if str(HACKENBUSH_DIR) not in sys.path:
-    sys.path.insert(0, str(HACKENBUSH_DIR))
+if str(HOTPOTCH_DIR) not in sys.path:
+    sys.path.insert(0, str(HOTPOTCH_DIR))
 
 import hb_solver
 import hb_io
@@ -39,7 +39,7 @@ from hb_theme import THEME
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Hackenbush Builder & Player")
+        self.setWindowTitle("Hotpotch Builder & Player")
 
         self._cfg = hb_settings.load_config()
 
@@ -98,7 +98,7 @@ class MainWindow(QMainWindow):
         self.player_btn.clicked.connect(self._manual_turn_toggle)
 
         self.edit_btn = QPushButton()
-        self.edit_btn.setIcon(QIcon("figs/edit-mode.svg"))
+        self.edit_btn.setIcon(QIcon("hotpotch_utils/figs/edit-mode.svg"))
         self.edit_btn.setIconSize(QSize(33, 33))
         self.edit_btn.setFixedSize(40, 40)
         self.edit_btn.setToolTip("Edit mode: Can remove any edge")
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         self._update_player_button()
 
         self.clear_btn = QPushButton()
-        self.clear_btn.setIcon(QIcon("figs/trash-bin.svg"))
+        self.clear_btn.setIcon(QIcon("hotpotch_utils/figs/trash-bin.svg"))
         self.clear_btn.setIconSize(QSize(33, 33))
         self.clear_btn.setFixedSize(33, 33)
         self.clear_btn.clicked.connect(self.clear_scene)
@@ -156,14 +156,14 @@ class MainWindow(QMainWindow):
         icon_font.setPointSize(THEME.theme.icon_btn_font_size)
 
         self.step_back_btn = QPushButton()
-        self.step_back_btn.setIcon(QIcon("figs/history-left.svg"))
+        self.step_back_btn.setIcon(QIcon("hotpotch_utils/figs/history-left.svg"))
         self.step_back_btn.setIconSize(QSize(33, 33))
         self.step_back_btn.setFixedSize(40, 40)
         self.step_back_btn.setFont(icon_font)
         self.step_back_btn.clicked.connect(self.step_backward)
 
         self.step_fwd_btn = QPushButton()
-        self.step_fwd_btn.setIcon(QIcon("figs/history-right.svg"))
+        self.step_fwd_btn.setIcon(QIcon("hotpotch_utils/figs/history-right.svg"))
         self.step_fwd_btn.setIconSize(QSize(33, 33))
         self.step_fwd_btn.setFixedSize(40, 40)
         self.step_fwd_btn.setFont(icon_font)
@@ -324,7 +324,7 @@ class MainWindow(QMainWindow):
         self.edu_manager.update_overlay()
 
     def save_game(self) -> None:
-        path, _ = QFileDialog.getSaveFileName(self, "Save Hackenbush", "", "Hackenbush (*.hbg.json);;JSON (*.json);;All Files (*)")
+        path, _ = QFileDialog.getSaveFileName(self, "Save Hotpotch", "", "Hotpotch (*.hbg.json);;JSON (*.json);;All Files (*)")
         if not path: return
         if not path.endswith(".json"): path += ".hbg.json"
         try:
@@ -334,7 +334,7 @@ class MainWindow(QMainWindow):
             self.result_lbl.setText(f"Save error: {e}")
 
     def load_game(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Load Hackenbush", "", "Hackenbush (*.hbg.json *.json);;All Files (*)")
+        path, _ = QFileDialog.getOpenFileName(self, "Load Hotpotch", "", "Hotpotch (*.hbg.json *.json);;All Files (*)")
         if not path: return
         try:
             hb_io.load_from_file(self.scene, path)
@@ -486,7 +486,7 @@ class MainWindow(QMainWindow):
             self,
             "Help",
             """
-            <h2>Hackenbush Builder & Player</h2>
+            <h2>Hotpotch Builder & Player</h2>
 
             <h3>Basic controls</h3>
             <p>

@@ -1,7 +1,7 @@
 /*
  * Final bachelors thesis
- * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
- * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ * Title cz: Algoritmy strojového hraní Hotpotche s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hotpotch Using Surreal Numbers
  *
  * Faculty of Information Technology Brno University of Technology
  * Author: Václav Matyáš (xmatyav00)
@@ -42,7 +42,7 @@ Game* game_canonicalize(Game *G);
 // Computes the mathematical sum of games G and H and returns the result in canonical form.
 Game* game_add(Game *G, Game *H);
 
-// Solves a single connected component of the raw Hackenbush position.
+// Solves a single connected component of the raw Hotpotch position.
 Game* solve_component(RawGame_t raw_game, Position_t position);
 
 // Splits the position into independent components and sums their game values.

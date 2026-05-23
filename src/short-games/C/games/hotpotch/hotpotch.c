@@ -1,7 +1,7 @@
 /*
  * Final bachelors thesis
- * Title cz: Algoritmy strojového hraní Hackenbushe s využitím surreálních čísel
- * Title en: Algorithms for Automated Play of Hackenbush Using Surreal Numbers
+ * Title cz: Algoritmy strojového hraní Hotpotche s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hotpotch Using Surreal Numbers
  *
  * Faculty of Information Technology Brno University of Technology
  * Author: Václav Matyáš (xmatyav00)
@@ -13,7 +13,7 @@
 #include "error.h"
 #include "darray.h"
 
-#include "hackenbush.h"
+#include "hotpotch.h"
 #include "raw_game.h"
 
 /*
@@ -44,7 +44,7 @@ void build_adjacency(const BaseGraph *g, edge_mask_t live_mask, uint8_t *deg, ui
 /*
  * Removes all edges that are no longer connected to the ground vertex.
  *
- * In Hackenbush, the ground is represented by vertex 0. After a move,
+ * In Hotpotch, the ground is represented by vertex 0. After a move,
  * some parts of the graph may become disconnected from the ground.
  * These parts are not part of the remaining position and must be removed.
  */
@@ -183,7 +183,7 @@ static Position_t create_position(edge_mask_t mask) {
 }
 
 /*
- * Splits the current Hackenbush position into independent components.
+ * Splits the current Hotpotch position into independent components.
  *
  * Independent components can be evaluated separately by the short-games
  * solver. The ground vertex itself is ignored while finding components,

@@ -14,7 +14,7 @@ from hb_theme import THEME
 
 app = QApplication(sys.argv)
 
-path_to_lib = "../../../../build/short-games/hackenbush/libhackenbush.so"
+path_to_lib = "../../../../build/short-games/hotpotch/libhotpotch.so"
 solver = hb_solver.HBSolver(path_to_lib)
 solver.initialize()
 
