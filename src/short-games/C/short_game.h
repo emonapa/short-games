@@ -20,17 +20,15 @@ extern int make_count;
 
 // Representation of a game G = {L | R}
 typedef struct Game {
-    int L_count;
-    int R_count;
-    struct Game **left;  // Array of pointers to Left's options
-    struct Game **right; // Array of pointers to Right's options
+    struct Game **left;  // Dynamic array of pointers to Left's options
+    struct Game **right; // Dynamic array of pointers to Right's options
 } Game;
 
 void short_game_init(float memory_multiplier);
 void short_game_free(void);
 
 // Basic game construction operation.
-Game* game_make(Game **left, int L_count, Game **right, int R_count);
+Game* game_make(Game **left, Game **right);
 
 // Conway game comparison.
 int game_geq(Game *G, Game *H); // Returns 1 if G >= H

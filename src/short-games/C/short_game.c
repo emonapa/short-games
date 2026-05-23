@@ -72,34 +72,25 @@ void short_game_free(void) {
 /* ------------------------------------------------------------
    Basic node construction
    ------------------------------------------------------------ */
-Game* game_make(Game **left, int L_count, Game **right, int R_count) {
+Game* game_make(Game **left, Game **right) {
     Game *g = (Game*)malloc(sizeof(Game));
     if (g == NULL) error_exit(ERR_MALLOC, "");
 
-    g->L_count = L_count;
-    g->R_count = R_count;
-    //TODO
-    make_count++;
-    if (make_count % info_count == 0) printf("[INFO] make count %d.   * %d\n", (int)(make_count/info_count), info_count);
-
     g->left = NULL;
-    if (L_count > 0) {
-        g->left = (Game**)malloc((size_t)L_count * sizeof(Game*));
-        if (g->left == NULL) error_exit(ERR_MALLOC, "");
-
-        for (int i = 0; i < L_count; i++) g->left[i] = left[i];
-    }
-
     g->right = NULL;
-    if (R_count > 0) {
-        g->right = (Game**)malloc((size_t)R_count * sizeof(Game*));
-        if (g->right == NULL) error_exit(ERR_MALLOC, "");
 
-        for (int i = 0; i < R_count; i++) g->right[i] = right[i];
+    if (left != NULL) da_append_many(g->left, left);
+    if (right != NULL) da_append_many(g->right, right);
+
+    make_count++;
+    if (make_count % info_count == 0) {
+        printf("[INFO] make count %d.   * %d\n",
+               (int)(make_count / info_count), info_count);
     }
 
     return g;
 }
+
 
 
 int game_geq(Game *G, Game *H) {
@@ -116,7 +107,7 @@ int game_geq(Game *G, Game *H) {
     //
     // If there is a right option G^R such that H >= G^R,
     // then G >= H does not hold.
-    for (int i = 0; i < G->R_count; i++) {
+    for (size_t i = 0; i < da_len(G->right); i++) {
         Game *GR = G->right[i];
 
         if (game_geq(H, GR)) {
@@ -131,7 +122,7 @@ int game_geq(Game *G, Game *H) {
     //
     // If there is a left option H^L such that H^L >= G,
     // then G >= H does not hold.
-    for (int i = 0; i < H->L_count; i++) {
+    for (size_t i = 0; i < da_len(H->left); i++) {
         Game *HL = H->left[i];
 
         if (game_geq(HL, G)) {
@@ -148,55 +139,6 @@ int game_geq(Game *G, Game *H) {
 
 int game_eq(Game *G, Game *H) {
     return game_geq(G, H) && game_geq(H, G);
-}
-
-static void replace_left_option(Game *G, int index, Game *GLR) {
-    if (G == NULL || GLR == NULL) error_exit(ERR_NULL_POINTER, "");
-
-    int old_count = G->L_count;
-    int replace_count = GLR->L_count;
-    int new_count = old_count - 1 + replace_count;
-
-    Game **new_arr = NULL;
-    if (new_count > 0) {
-        new_arr = (Game**)malloc(new_count * sizeof(Game*));
-        if (new_arr == NULL) error_exit(ERR_MALLOC, "");
-
-        int dst = 0;
-        // 1. Copy old options before the replaced index.
-        for (int i = 0; i < index; i++) new_arr[dst++] = G->left[i];
-        // 2. Insert grandchildren, which bypass the reversible option.
-        for (int i = 0; i < replace_count; i++) new_arr[dst++] = GLR->left[i];
-        // 3. Copy old options after the replaced index.
-        for (int i = index + 1; i < old_count; i++) new_arr[dst++] = G->left[i];
-    }
-
-    if (G->left) free(G->left); // Free the original option array.
-    G->left = new_arr;
-    G->L_count = new_count;
-}
-
-static void replace_right_option(Game *G, int index, Game *GRL) {
-    if (G == NULL || GRL == NULL) error_exit(ERR_NULL_POINTER, "");
-
-    int old_count = G->R_count;
-    int replace_count = GRL->R_count;
-    int new_count = old_count - 1 + replace_count;
-
-    Game **new_arr = NULL;
-    if (new_count > 0) {
-        new_arr = (Game**)malloc(new_count * sizeof(Game*));
-        if(new_arr == NULL) error_exit(ERR_MALLOC, "");
-
-        int dst = 0;
-        for (int i = 0; i < index; i++) new_arr[dst++] = G->right[i];
-        for (int i = 0; i < replace_count; i++) new_arr[dst++] = GRL->right[i];
-        for (int i = index + 1; i < old_count; i++) new_arr[dst++] = G->right[i];
-    }
-
-    if (G->right) free(G->right);
-    G->right = new_arr;
-    G->R_count = new_count;
 }
 
 // -----------------------------------------------------------------
@@ -222,48 +164,52 @@ Game* game_canonicalize(Game *G) {
     // 1) Canonicalize children first, so GLR/GRL references are already clean interned pointers.
     // This is theoretically unnecessary in the standard solver, where every subgame is already
     // canonicalized. It is still needed for other callers, for example the calculator.
-    for (int i = 0; i < G->L_count; i++) G->left[i] = game_canonicalize(G->left[i]);
-    for (int i = 0; i < G->R_count; i++) G->right[i] = game_canonicalize(G->right[i]);
+    for (size_t i = 0; i < da_len(G->left); i++) G->left[i] = game_canonicalize(G->left[i]);
+    for (size_t i = 0; i < da_len(G->right); i++) G->right[i] = game_canonicalize(G->right[i]);
 
     int changed = 1;
     while (changed) {
         changed = 0;
 
         // 2) Left reversible options.
-        for (int i = 0; i < G->L_count; i++) {
+        for (size_t i = 0; i < da_len(G->left); i++) {
             Game *GL = G->left[i];
             int reversed = 0;
 
-            for (int j = 0; j < GL->R_count; j++) {
+            for (size_t j = 0; j < da_len(GL->right); j++) {
                 Game *GLR = GL->right[j];
                 // Test whether Right has a reply that is no worse than the original game (GLR <= G).
                 if (game_geq(G, GLR)) {
-                    replace_left_option(G, i, GLR); // Remove the reversible option and insert its Left options.
+                    da_append_many(G->left, GLR->left);
+                    da_remove_unordered(G->left, i);
                     reversed = 1;
                     break;
                 }
             }
+
             if (reversed) {
                 changed = 1;
-                break; // The option array changed, so restart the scan.
+                break;
             }
         }
         if (changed) continue;
 
         // 3) Right reversible options.
-        for (int i = 0; i < G->R_count; i++) {
+        for (size_t i = 0; i < da_len(G->right); i++) {
             Game *GR = G->right[i];
             int reversed = 0;
 
-            for (int j = 0; j < GR->L_count; j++) {
+            for (size_t j = 0; j < da_len(GR->left); j++) {
                 Game *GRL = GR->left[j];
                 // Test whether Left has a reply that is no worse than the original game (GRL >= G).
                 if (game_geq(GRL, G)) {
-                    replace_right_option(G, i, GRL); // Remove the reversible option and insert its Right options.
+                    da_append_many(G->right, GRL->right);
+                    da_remove_unordered(G->right, i);
                     reversed = 1;
                     break;
                 }
             }
+
             if (reversed) {
                 changed = 1;
                 break;
@@ -272,52 +218,48 @@ Game* game_canonicalize(Game *G) {
         if (changed) continue;
 
         // 4) Left dominated options.
-        int keep_L = 0;
-        for (int i = 0; i < G->L_count; i++) {
+        for (size_t i = 0; i < da_len(G->left); i++) {
             Game *cand = G->left[i];
             int dominated = 0;
 
-            for (int j = 0; j < keep_L; j++) {
-                Game *kept = G->left[j];
-                if (kept == cand || game_geq(kept, cand)) {
+            for (size_t j = 0; j < da_len(G->left); j++) {
+                if (i == j) continue;
+
+                Game *other = G->left[j];
+                if (other == cand || game_geq(other, cand)) {
                     dominated = 1;
                     break;
                 }
-                if (game_geq(cand, kept)) {
-                    G->left[j] = G->left[--keep_L];
-                    j--;
-                }
             }
-            if (!dominated) G->left[keep_L++] = cand;
-        }
-        if (keep_L != G->L_count) {
-            G->L_count = keep_L;
-            changed = 1;
+
+            if (dominated) {
+                da_remove_unordered(G->left, i);
+                changed = 1;
+                break;
+            }
         }
         if (changed) continue;
 
         // 5) Right dominated options.
-        int keep_R = 0;
-        for (int i = 0; i < G->R_count; i++) {
+        for (size_t i = 0; i < da_len(G->right); i++) {
             Game *cand = G->right[i];
             int dominated = 0;
 
-            for (int j = 0; j < keep_R; j++) {
-                Game *kept = G->right[j];
-                if (kept == cand || game_geq(cand, kept)) {
+            for (size_t j = 0; j < da_len(G->right); j++) {
+                if (i == j) continue;
+
+                Game *other = G->right[j];
+                if (other == cand || game_geq(cand, other)) {
                     dominated = 1;
                     break;
                 }
-                if (game_geq(kept, cand)) {
-                    G->right[j] = G->right[--keep_R];
-                    j--;
-                }
             }
-            if (!dominated) G->right[keep_R++] = cand;
-        }
-        if (keep_R != G->R_count) {
-            G->R_count = keep_R;
-            changed = 1;
+
+            if (dominated) {
+                da_remove_unordered(G->right, i);
+                changed = 1;
+                break;
+            }
         }
     }
 
@@ -338,48 +280,45 @@ Game* game_add(Game *G, Game *H) {
     if (!G) return H;
     if (!H) return G;
 
-    if (G->L_count == 0 && G->R_count == 0) return H;
-    if (H->L_count == 0 && H->R_count == 0) return G;
+    if (da_len(G->left) == 0 && da_len(G->right) == 0) return H;
+    if (da_len(H->left) == 0 && da_len(H->right) == 0) return G;
 
     Game *memo = NULL;
     if (game_add_cache_get(G, H, &memo)) return memo;
 
-    //TODO
     add_count++;
-    if (add_count % info_count == 0) printf("[INFO] add count %d.   *%d\n", (int)(add_count/info_count), info_count);
-
-    int new_l_count = G->L_count + H->L_count;
-    int new_r_count = G->R_count + H->R_count;
+    if (add_count % info_count == 0) {
+        printf("[INFO] add count %d.   *%d\n",
+               (int)(add_count / info_count), info_count);
+    }
 
     Game **left_opts = NULL;
     Game **right_opts = NULL;
-    if (new_l_count > 0) {
-        left_opts = (Game**)malloc((size_t)new_l_count * sizeof(Game*));
-        if (left_opts == NULL) error_exit(ERR_MALLOC, "");
+
+    for (size_t i = 0; i < da_len(G->left); i++) {
+        da_push(left_opts, game_add(G->left[i], H));
     }
-    if (new_r_count > 0) {
-        right_opts = (Game**)malloc((size_t)new_r_count * sizeof(Game*));
-        if (right_opts == NULL) error_exit(ERR_MALLOC, "");
+    for (size_t i = 0; i < da_len(H->left); i++) {
+        da_push(left_opts, game_add(G, H->left[i]));
     }
 
-    int idx = 0;
-    for (int i = 0; i < G->L_count; i++) left_opts[idx++] = game_add(G->left[i], H);
-    for (int i = 0; i < H->L_count; i++) left_opts[idx++] = game_add(G, H->left[i]);
+    for (size_t i = 0; i < da_len(G->right); i++) {
+        da_push(right_opts, game_add(G->right[i], H));
+    }
+    for (size_t i = 0; i < da_len(H->right); i++) {
+        da_push(right_opts, game_add(G, H->right[i]));
+    }
 
-    idx = 0;
-    for (int i = 0; i < G->R_count; i++) right_opts[idx++] = game_add(G->right[i], H);
-    for (int i = 0; i < H->R_count; i++) right_opts[idx++] = game_add(G, H->right[i]);
-
-    Game *sum = game_make(left_opts, new_l_count, right_opts, new_r_count);
-    sum = game_canonicalize(sum);
+    Game *sum = game_canonicalize(game_make(left_opts, right_opts));
     if (sum == NULL) warning("Got NULL from canonization.\n");
 
-    if (left_opts) free(left_opts);
-    if (right_opts) free(right_opts);
+    da_free(left_opts);
+    da_free(right_opts);
 
     game_add_cache_put(G, H, sum);
     return sum;
 }
+
 
 
 Game* solve_component(RawGame_t raw_game, Position_t position) {
@@ -392,7 +331,6 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
 
     Game **left_opts = NULL;
     Game **right_opts = NULL;
-    int l_count = 0, r_count = 0;
 
     // Recursively evaluate all legal moves from this position.
     for (int e = 0; e < num_moves(raw_game); ++e) {
@@ -415,8 +353,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
         }
     }
 
-    Game *G = game_canonicalize(game_make(left_opts, (int)da_len(left_opts),
-                                          right_opts, (int)da_len(right_opts)));
+    Game *G = game_canonicalize(game_make(left_opts, right_opts));
 
     da_free(left_opts);
     da_free(right_opts);

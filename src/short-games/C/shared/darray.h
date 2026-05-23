@@ -21,58 +21,122 @@
  *   Sean Barrett, stretchy_buffer.h, stb single-file public domain libraries
  *   https://github.com/nothings/stb
  */
-#ifndef DYN_ARRAY_H
-#define DYN_ARRAY_H
 
-#include <stdlib.h>
+#ifndef DARRAY_H
+#define DARRAY_H
+
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "error.h"
 
-typedef struct DynArrayHeader {
+typedef struct DArrayHeader {
     size_t len;
     size_t cap;
-} DynArrayHeader;
+} DArrayHeader;
 
-#define da_header(a) ((DynArrayHeader *)((char *)(a) - sizeof(DynArrayHeader)))
-#define da_len(a) ((a) ? da_header(a)->len : 0)
-#define da_cap(a) ((a) ? da_header(a)->cap : 0)
+#define da_header(a) \
+    ((DArrayHeader *)((char *)(a) - sizeof(DArrayHeader)))
 
-#define da_free(a) \
-    do { \
-        if (a) { \
-            free(da_header(a)); \
-            (a) = NULL; \
-        } \
+#define da_len(a) \
+    ((a) ? da_header(a)->len : 0)
+
+#define da_cap(a) \
+    ((a) ? da_header(a)->cap : 0)
+
+#define da_free(a)                     \
+    do {                               \
+        if (a) {                       \
+            free(da_header(a));        \
+            (a) = NULL;                \
+        }                              \
     } while (0)
 
-#define da_push(a, value) \
-    do { \
-        if (da_len(a) >= da_cap(a)) { \
-            (a) = da_grow((a), sizeof(*(a))); \
-        } \
-        (a)[da_header(a)->len++] = (value); \
+#define da_reserve(a, expected_cap)                                      \
+    do {                                                                \
+        if ((expected_cap) > da_cap(a)) {                               \
+            (a) = da_grow((a), sizeof(*(a)), (expected_cap));           \
+        }                                                               \
     } while (0)
 
-static void *da_grow(void *arr, size_t elem_size)
+#define da_push(a, value)                                                \
+    do {                                                                 \
+        if (da_len(a) >= da_cap(a)) {                                    \
+            (a) = da_grow((a), sizeof(*(a)), da_len(a) + 1);             \
+        }                                                                \
+        (a)[da_header(a)->len++] = (value);                              \
+    } while (0)
+
+#define da_append(a, value) \
+    da_push((a), (value))
+
+#define da_append_many(a, other)                                         \
+    do {                                                                 \
+        size_t da_other_len = da_len(other);                             \
+        if (da_other_len > 0) {                                          \
+            size_t da_old_len = da_len(a);                               \
+            da_reserve((a), da_old_len + da_other_len);                  \
+            memcpy((a) + da_old_len,                                     \
+                   (other),                                              \
+                   da_other_len * sizeof(*(a)));                         \
+            da_header(a)->len = da_old_len + da_other_len;               \
+        }                                                                \
+    } while (0)
+
+#define da_resize(a, new_len)                                            \
+    do {                                                                 \
+        da_reserve((a), (new_len));                                      \
+        da_header(a)->len = (new_len);                                  \
+    } while (0)
+
+#define da_pop(a) \
+    ((a)[--da_header(a)->len])
+
+#define da_first(a) \
+    ((a)[0])
+
+#define da_last(a) \
+    ((a)[da_len(a) - 1])
+
+#define da_remove_unordered(a, index)                                    \
+    do {                                                                 \
+        size_t da_i = (index);                                           \
+        size_t da_n = da_len(a);                                         \
+        (a)[da_i] = (a)[da_n - 1];                                       \
+        da_header(a)->len = da_n - 1;                                   \
+    } while (0)
+
+#define da_foreach(Type, it, a) \
+    for (Type *it = (a); it < (a) + da_len(a); ++it)
+
+static void *da_grow(void *arr, size_t elem_size, size_t min_cap)
 {
     size_t old_len = arr ? da_header(arr)->len : 0;
     size_t old_cap = arr ? da_header(arr)->cap : 0;
     size_t new_cap = old_cap ? old_cap * 2 : 8;
 
-    size_t new_size = sizeof(DynArrayHeader) + new_cap * elem_size;
+    while (new_cap < min_cap) {
+        new_cap *= 2;
+    }
 
-    DynArrayHeader *new_header;
+    size_t new_size = sizeof(DArrayHeader) + new_cap * elem_size;
 
-    if (arr) new_header = realloc(da_header(arr), new_size);
-    else new_header     = malloc(new_size);
+    DArrayHeader *new_header;
+    if (arr) {
+        new_header = realloc(da_header(arr), new_size);
+    } else {
+        new_header = malloc(new_size);
+    }
 
-    if (new_header == NULL) error_exit(ERR_MALLOC, "Error while allocating in dynamic array.");
+    if (new_header == NULL) {
+        error_exit(ERR_MALLOC, "Error while allocating dynamic array.");
+    }
 
     new_header->len = old_len;
     new_header->cap = new_cap;
 
-    return (char *)new_header + sizeof(DynArrayHeader);
+    return (char *)new_header + sizeof(DArrayHeader);
 }
 
 #endif
