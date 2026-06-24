@@ -84,10 +84,10 @@ typedef struct DArrayHeader {
         }                                                                \
     } while (0)
 
-#define da_resize(a, new_len)                                            \
-    do {                                                                 \
-        da_reserve((a), (new_len));                                      \
-        da_header(a)->len = (new_len);                                  \
+#define da_resize(a, new_len)          \
+    do {                               \
+        da_reserve((a), (new_len));    \
+        da_header(a)->len = (new_len); \
     } while (0)
 
 #define da_pop(a) \
@@ -110,8 +110,7 @@ typedef struct DArrayHeader {
 #define da_foreach(Type, it, a) \
     for (Type *it = (a); it < (a) + da_len(a); ++it)
 
-static void *da_grow(void *arr, size_t elem_size, size_t min_cap)
-{
+static void *da_grow(void *arr, size_t elem_size, size_t min_cap) {
     size_t old_len = arr ? da_header(arr)->len : 0;
     size_t old_cap = arr ? da_header(arr)->cap : 0;
     size_t new_cap = old_cap ? old_cap * 2 : 8;
@@ -125,13 +124,13 @@ static void *da_grow(void *arr, size_t elem_size, size_t min_cap)
     DArrayHeader *new_header;
     if (arr) {
         new_header = realloc(da_header(arr), new_size);
+        if (new_header == NULL) warning("Error while reallocating dynamic array with size %zu.\n", new_size);
     } else {
         new_header = malloc(new_size);
+        if (new_header == NULL) warning("Error while allocating dynamic array with size %zu.\n", new_size);
     }
 
-    if (new_header == NULL) {
-        error_exit(ERR_MALLOC, "Error while allocating dynamic array.");
-    }
+    if (new_header == NULL) return NULL;
 
     new_header->len = old_len;
     new_header->cap = new_cap;

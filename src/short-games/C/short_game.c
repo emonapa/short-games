@@ -16,7 +16,7 @@
 
 #include "shared/error.h"
 #include "shared/stack.h"
-#include "shared/darray.h"
+#include "game_darray.h"
 #include "shared/raw_game.h"
 
 #include "game_intern_cache.h"
@@ -33,7 +33,7 @@ int add_count = 0;
 int make_count = 0;
 int info_count = 100000000;
 
-// debatable if needed, see da_free in the solve function
+// debatable if needed, see game_free in the solve function
 //float g_memory_multiplier = 0.5;
 
 void short_game_init(float memory_multiplier) {
@@ -79,8 +79,8 @@ Game* game_make(Game **left, Game **right) {
     g->left = NULL;
     g->right = NULL;
 
-    if (left != NULL) da_append_many(g->left, left);
-    if (right != NULL) da_append_many(g->right, right);
+    if (left != NULL) game_append_many(&g->left, left);
+    if (right != NULL) game_append_many(&g->right, right);
 
     make_count++;
     if (make_count % info_count == 0) {
@@ -107,7 +107,7 @@ int game_geq(Game *G, Game *H) {
     //
     // If there is a right option G^R such that H >= G^R,
     // then G >= H does not hold.
-    for (size_t i = 0; i < da_len(G->right); i++) {
+    for (size_t i = 0; i < game_len(&G->right); i++) {
         Game *GR = G->right[i];
 
         if (game_geq(H, GR)) {
@@ -122,7 +122,7 @@ int game_geq(Game *G, Game *H) {
     //
     // If there is a left option H^L such that H^L >= G,
     // then G >= H does not hold.
-    for (size_t i = 0; i < da_len(H->left); i++) {
+    for (size_t i = 0; i < game_len(&H->left); i++) {
         Game *HL = H->left[i];
 
         if (game_geq(HL, G)) {
@@ -141,47 +141,24 @@ int game_eq(Game *G, Game *H) {
     return game_geq(G, H) && game_geq(H, G);
 }
 
-// -----------------------------------------------------------------
-// MAIN CANONICALIZATION FUNCTION
-// -----------------------------------------------------------------
-// 1. Remove left reversible options.
-// 2. Remove right reversible options.
-// 3. Remove left dominated options.
-// 4. Remove right dominated options.
-// 5. Intern the resulting canonical node.
-Game* game_canonicalize(Game *G) {
-    if (G == NULL) {
-        error_exit(ERR_NULL_POINTER, "");
-    }
 
-    if (G == game_zero() || G == game_star()) return G;
 
-    Game *cached = NULL;
-    if (game_canon_cache_get(G, &cached)) return cached;
-
-    cannon_count++;
-
-    // 1) Canonicalize children first, so GLR/GRL references are already clean interned pointers.
-    // This is theoretically unnecessary in the standard solver, where every subgame is already
-    // canonicalized. It is still needed for other callers, for example the calculator.
-    for (size_t i = 0; i < da_len(G->left); i++) G->left[i] = game_canonicalize(G->left[i]);
-    for (size_t i = 0; i < da_len(G->right); i++) G->right[i] = game_canonicalize(G->right[i]);
-
+Game* game_remove_dom_and_rev(Game *G) {
     int changed = 1;
     while (changed) {
         changed = 0;
 
         // 2) Left reversible options.
-        for (size_t i = 0; i < da_len(G->left); i++) {
+        for (size_t i = 0; i < game_len(&G->left); i++) {
             Game *GL = G->left[i];
             int reversed = 0;
 
-            for (size_t j = 0; j < da_len(GL->right); j++) {
+            for (size_t j = 0; j < game_len(&GL->right); j++) {
                 Game *GLR = GL->right[j];
                 // Test whether Right has a reply that is no worse than the original game (GLR <= G).
                 if (game_geq(G, GLR)) {
-                    da_append_many(G->left, GLR->left);
-                    da_remove_unordered(G->left, i);
+                    game_append_many(&G->left, GLR->left);
+                    game_remove_unordered(&G->left, i);
                     reversed = 1;
                     break;
                 }
@@ -195,16 +172,16 @@ Game* game_canonicalize(Game *G) {
         if (changed) continue;
 
         // 3) Right reversible options.
-        for (size_t i = 0; i < da_len(G->right); i++) {
+        for (size_t i = 0; i < game_len(&G->right); i++) {
             Game *GR = G->right[i];
             int reversed = 0;
 
-            for (size_t j = 0; j < da_len(GR->left); j++) {
+            for (size_t j = 0; j < game_len(&GR->left); j++) {
                 Game *GRL = GR->left[j];
                 // Test whether Left has a reply that is no worse than the original game (GRL >= G).
                 if (game_geq(GRL, G)) {
-                    da_append_many(G->right, GRL->right);
-                    da_remove_unordered(G->right, i);
+                    game_append_many(&G->right, GRL->right);
+                    game_remove_unordered(&G->right, i);
                     reversed = 1;
                     break;
                 }
@@ -218,11 +195,11 @@ Game* game_canonicalize(Game *G) {
         if (changed) continue;
 
         // 4) Left dominated options.
-        for (size_t i = 0; i < da_len(G->left); i++) {
+        for (size_t i = 0; i < game_len(&G->left); i++) {
             Game *cand = G->left[i];
             int dominated = 0;
 
-            for (size_t j = 0; j < da_len(G->left); j++) {
+            for (size_t j = 0; j < game_len(&G->left); j++) {
                 if (i == j) continue;
 
                 Game *other = G->left[j];
@@ -233,7 +210,7 @@ Game* game_canonicalize(Game *G) {
             }
 
             if (dominated) {
-                da_remove_unordered(G->left, i);
+                game_remove_unordered(&G->left, i);
                 changed = 1;
                 break;
             }
@@ -241,11 +218,11 @@ Game* game_canonicalize(Game *G) {
         if (changed) continue;
 
         // 5) Right dominated options.
-        for (size_t i = 0; i < da_len(G->right); i++) {
+        for (size_t i = 0; i < game_len(&G->right); i++) {
             Game *cand = G->right[i];
             int dominated = 0;
 
-            for (size_t j = 0; j < da_len(G->right); j++) {
+            for (size_t j = 0; j < game_len(&G->right); j++) {
                 if (i == j) continue;
 
                 Game *other = G->right[j];
@@ -256,7 +233,7 @@ Game* game_canonicalize(Game *G) {
             }
 
             if (dominated) {
-                da_remove_unordered(G->right, i);
+                game_remove_unordered(&G->right, i);
                 changed = 1;
                 break;
             }
@@ -272,6 +249,49 @@ Game* game_canonicalize(Game *G) {
 }
 
 
+// -----------------------------------------------------------------
+// MAIN CANONICALIZATION FUNCTION
+// -----------------------------------------------------------------
+// 1. Remove left reversible options.
+// 2. Remove right reversible options.
+// 3. Remove left dominated options.
+// 4. Remove right dominated options.
+// 5. Intern the resulting canonical node.
+Game* game_canonicalize(Game *G) {
+    if (G == NULL) error_exit(ERR_NULL_POINTER, "");
+
+    if (G == game_zero() || G == game_star()) return G;
+
+    Game *cached = NULL;
+    if (game_canon_cache_get(G, &cached)) return cached;
+    cannon_count++;
+
+    // 1) Canonicalize children first, so GLR/GRL references are already clean interned pointers.
+    // This is theoretically unnecessary in the standard solver, where every subgame is already
+    // canonicalized. It is still needed for other callers, for example the calculator.
+    game_foreach(it, &G->left) *it = game_canonicalize(*it);
+    game_foreach(it, &G->right) *it = game_canonicalize(*it);
+
+    return game_remove_dom_and_rev(G);
+}
+
+Game* game_canonicalize_shallow(Game *G) {
+    if (G == NULL) {
+        error_exit(ERR_NULL_POINTER, "");
+    }
+
+    if (G == game_zero() || G == game_star()) return G;
+
+    Game *cached = NULL;
+    if (game_canon_cache_get(G, &cached)) return cached;
+    cannon_count++;
+
+    return game_remove_dom_and_rev(G);
+}
+
+
+
+
 /* ------------------------------------------------------------
    Game sum with memoization
    ------------------------------------------------------------ */
@@ -280,8 +300,8 @@ Game* game_add(Game *G, Game *H) {
     if (!G) return H;
     if (!H) return G;
 
-    if (da_len(G->left) == 0 && da_len(G->right) == 0) return H;
-    if (da_len(H->left) == 0 && da_len(H->right) == 0) return G;
+    if (game_len(&G->left) == 0 && game_len(&G->right) == 0) return H;
+    if (game_len(&H->left) == 0 && game_len(&H->right) == 0) return G;
 
     Game *memo = NULL;
     if (game_add_cache_get(G, H, &memo)) return memo;
@@ -295,25 +315,25 @@ Game* game_add(Game *G, Game *H) {
     Game **left_opts = NULL;
     Game **right_opts = NULL;
 
-    for (size_t i = 0; i < da_len(G->left); i++) {
-        da_push(left_opts, game_add(G->left[i], H));
+    for (size_t i = 0; i < game_len(&G->left); i++) {
+        game_push(&left_opts, game_add(G->left[i], H));
     }
-    for (size_t i = 0; i < da_len(H->left); i++) {
-        da_push(left_opts, game_add(G, H->left[i]));
+    for (size_t i = 0; i < game_len(&H->left); i++) {
+        game_push(&left_opts, game_add(G, H->left[i]));
     }
 
-    for (size_t i = 0; i < da_len(G->right); i++) {
-        da_push(right_opts, game_add(G->right[i], H));
+    for (size_t i = 0; i < game_len(&G->right); i++) {
+        game_push(&right_opts, game_add(G->right[i], H));
     }
-    for (size_t i = 0; i < da_len(H->right); i++) {
-        da_push(right_opts, game_add(G, H->right[i]));
+    for (size_t i = 0; i < game_len(&H->right); i++) {
+        game_push(&right_opts, game_add(G, H->right[i]));
     }
 
     Game *sum = game_canonicalize(game_make(left_opts, right_opts));
     if (sum == NULL) warning("Got NULL from canonization.\n");
 
-    da_free(left_opts);
-    da_free(right_opts);
+    game_free(&left_opts);
+    game_free(&right_opts);
 
     game_add_cache_put(G, H, sum);
     return sum;
@@ -340,7 +360,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
             if (child_position == NULL) error_exit(ERR_MALLOC, "");
 
             child = solve_component(raw_game, child_position);
-            da_push(left_opts, child);
+            game_push(&left_opts, child);
             free(child_position);
         }
         if (can_right_move(raw_game, position, e)) {
@@ -348,15 +368,15 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
             if (child_position == NULL) error_exit(ERR_MALLOC, "");
 
             child = solve_component(raw_game, child_position);
-            da_push(right_opts, child);
+            game_push(&right_opts, child);
             free(child_position);
         }
     }
 
-    Game *G = game_canonicalize(game_make(left_opts, right_opts));
+    Game *G = game_canonicalize_shallow(game_make(left_opts, right_opts));
 
-    da_free(left_opts);
-    da_free(right_opts);
+    game_free(&left_opts);
+    game_free(&right_opts);
     position_cache_insert(raw_game, position, G);
     return G;
 }
@@ -408,7 +428,7 @@ Game* solve(void *raw_game, void *position) {
 
     for (int i = 0; i < count; i++) free(sub_games[i]);
     // This freeing is possible here, but it makes the code less general, so just leak it!
-    //da_free(sub_games);
+    //game_free(sub_games);
 
     return total_sum;
 }

@@ -352,7 +352,11 @@ class CalculatorPanel(QWidget):
     def _calc_unary(self):
         try:
             s = self._solver()
+            print("HIII")
             g = GameParser(s).parse(self.unary_input.text())
+            text = self._str(g, self.unary_raw)
+            print("LOL")
+
             if self.unary_op.currentIndex() == 0: # negace
                 result = s.game_negate(g)
                 self.unary_result.setText(self._str(result, self.unary_raw))

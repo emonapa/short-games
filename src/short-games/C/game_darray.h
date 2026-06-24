@@ -1,0 +1,29 @@
+#ifndef GAME_DARRAY_H
+#define GAME_DARRAY_H
+
+#include <stddef.h>
+
+#include "short_game.h"
+#include "darray.h"
+
+size_t game_len(Game ***game);
+size_t game_cap(Game ***game);
+
+void game_free(Game ***game);
+
+void game_reserve(Game ***game, size_t expected_cap);
+void game_push(Game ***game, Game *value);
+void game_append(Game ***game, Game *value);
+void game_append_many(Game ***game, Game **other);
+void game_resize(Game ***game, size_t new_len);
+
+Game *game_pop(Game ***game);
+Game *game_first(Game ***game);
+Game *game_last(Game ***game);
+
+void game_remove_unordered(Game ***game, size_t index);
+
+#define game_foreach(it, game) \
+    da_foreach(Game *, it, *(game))
+
+#endif
