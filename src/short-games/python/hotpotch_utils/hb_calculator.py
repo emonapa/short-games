@@ -115,9 +115,13 @@ class GameParser:
                 raise ValueError(f"Missing '|' in: {s}")
             left_str  = inner[:pipe].strip()
             right_str = inner[pipe + 1:].strip()
-            lefts  = self._parse_list(left_str)
-            rights = self._parse_list(right_str)
-            return self.s.game_make(lefts, rights)
+            lefts = self._parse_game_array(left_str)
+            rights = self._parse_game_array(right_str)
+            try:
+                return self.s.game_from_game_arrays(lefts, rights)
+            finally:
+                self.s.game_free_array(lefts)
+                self.s.game_free_array(rights)
 
         # -- * (star) ----------------------------------------------------------
         if s == "*":
@@ -174,6 +178,17 @@ class GameParser:
         if not s:
             return []
         return [self._parse(p) for p in self._split_top(s, ",")]
+
+    def _parse_game_array(self, s: str):
+        games = self.s.game_array_new()
+        parts = self._split_top(s.strip(), ",") if s.strip() else []
+
+        if parts:
+            games = self.s.game_reserve(games, len(parts))
+            for part in parts:
+                games = self.s.game_push(games, self._parse(part))
+
+        return games
 
     def _find_pipe(self, s: str) -> int:
         depth = 0
@@ -352,10 +367,7 @@ class CalculatorPanel(QWidget):
     def _calc_unary(self):
         try:
             s = self._solver()
-            print("HIII")
             g = GameParser(s).parse(self.unary_input.text())
-            text = self._str(g, self.unary_raw)
-            print("LOL")
 
             if self.unary_op.currentIndex() == 0: # negace
                 result = s.game_negate(g)

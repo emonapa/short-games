@@ -1,3 +1,4 @@
+
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
@@ -164,4 +165,10 @@ Game *game_intern_cache_get(Game *G)
 
     // Cache plna, fallback
     return G;
+}
+
+
+Game* game_intern_cache_prep_and_get(Game *G) {
+    game_intern_cache_prepare(G);
+    return game_intern_cache_get(G);
 }

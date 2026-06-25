@@ -11,9 +11,11 @@ def get_default_lib_path() -> str:
 from ctypes import (
     Structure,
     POINTER,
+    byref,
     c_char_p,
     c_float,
     c_int,
+    c_size_t,
     c_uint64,
     c_void_p,
 )
@@ -24,14 +26,13 @@ class CGame(Structure):
     pass
 
 CGame._fields_ = [
-    ("L_count", c_int),
-    ("R_count", c_int),
     ("left", POINTER(POINTER(CGame))),
     ("right", POINTER(POINTER(CGame))),
 ]
 
 GamePtr = POINTER(CGame)
 GamePtrArrayPtr = POINTER(GamePtr)
+GamePtrArrayPtrPtr = POINTER(GamePtrArrayPtr)
 
 def void_ptr_to(obj) -> c_void_p:
     return ctypes.cast(ctypes.byref(obj), c_void_p)
@@ -118,13 +119,44 @@ class ShortGameSolver:
         self.lib.game_geq.argtypes = [GamePtr, GamePtr]
         self.lib.game_geq.restype = c_int
 
-        self.lib.game_make.argtypes = [
-            GamePtrArrayPtr,
-            c_int,
-            GamePtrArrayPtr,
-            c_int,
-        ]
-        self.lib.game_make.restype = GamePtr
+        self.lib.game_from_games.argtypes = [GamePtrArrayPtr, GamePtrArrayPtr]
+        self.lib.game_from_games.restype = GamePtr
+
+        self.lib.game_len.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_len.restype = c_size_t
+
+        self.lib.game_cap.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_cap.restype = c_size_t
+
+        self.lib.game_free.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_free.restype = None
+
+        self.lib.game_reserve.argtypes = [GamePtrArrayPtrPtr, c_size_t]
+        self.lib.game_reserve.restype = None
+
+        self.lib.game_push.argtypes = [GamePtrArrayPtrPtr, GamePtr]
+        self.lib.game_push.restype = None
+
+        self.lib.game_append.argtypes = [GamePtrArrayPtrPtr, GamePtr]
+        self.lib.game_append.restype = None
+
+        self.lib.game_append_many.argtypes = [GamePtrArrayPtrPtr, GamePtrArrayPtr]
+        self.lib.game_append_many.restype = None
+
+        self.lib.game_resize.argtypes = [GamePtrArrayPtrPtr, c_size_t]
+        self.lib.game_resize.restype = None
+
+        self.lib.game_pop.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_pop.restype = GamePtr
+
+        self.lib.game_first.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_first.restype = GamePtr
+
+        self.lib.game_last.argtypes = [GamePtrArrayPtrPtr]
+        self.lib.game_last.restype = GamePtr
+
+        self.lib.game_remove_unordered.argtypes = [GamePtrArrayPtrPtr, c_size_t]
+        self.lib.game_remove_unordered.restype = None
 
         self.lib.game_canonicalize.argtypes = [GamePtr]
         self.lib.game_canonicalize.restype = GamePtr
@@ -180,14 +212,72 @@ class ShortGameSolver:
     def game_geq(self, g1: GamePtr, g2: GamePtr) -> bool:
         return bool(self.lib.game_geq(g1, g2))
 
-    def game_make(self, lefts: list, rights: list) -> GamePtr:
-        LeftArray = GamePtr * max(len(lefts), 1)
-        RightArray = GamePtr * max(len(rights), 1)
+    def game_array_new(self) -> GamePtrArrayPtr:
+        return GamePtrArrayPtr()
 
-        left_arr = LeftArray(*lefts) if lefts else LeftArray()
-        right_arr = RightArray(*rights) if rights else RightArray()
+    def game_len(self, games: GamePtrArrayPtr) -> int:
+        return int(self.lib.game_len(byref(games)))
 
-        return self.lib.game_make(left_arr, len(lefts), right_arr, len(rights))
+    def game_cap(self, games: GamePtrArrayPtr) -> int:
+        return int(self.lib.game_cap(byref(games)))
+
+    def game_free_array(self, games: GamePtrArrayPtr) -> GamePtrArrayPtr:
+        self.lib.game_free(byref(games))
+        return games
+
+    def game_reserve(self, games: GamePtrArrayPtr, expected_cap: int) -> GamePtrArrayPtr:
+        self.lib.game_reserve(byref(games), c_size_t(expected_cap))
+        return games
+
+    def game_push(self, games: GamePtrArrayPtr, value: GamePtr) -> GamePtrArrayPtr:
+        self.lib.game_push(byref(games), value)
+        return games
+
+    def game_append(self, games: GamePtrArrayPtr, value: GamePtr) -> GamePtrArrayPtr:
+        self.lib.game_append(byref(games), value)
+        return games
+
+    def game_append_many(self, games: GamePtrArrayPtr, other: GamePtrArrayPtr) -> GamePtrArrayPtr:
+        self.lib.game_append_many(byref(games), other)
+        return games
+
+    def game_resize(self, games: GamePtrArrayPtr, new_len: int) -> GamePtrArrayPtr:
+        self.lib.game_resize(byref(games), c_size_t(new_len))
+        return games
+
+    def game_pop(self, games: GamePtrArrayPtr) -> tuple[GamePtrArrayPtr, GamePtr]:
+        value = self.lib.game_pop(byref(games))
+        return games, value
+
+    def game_first(self, games: GamePtrArrayPtr) -> GamePtr:
+        return self.lib.game_first(byref(games))
+
+    def game_last(self, games: GamePtrArrayPtr) -> GamePtr:
+        return self.lib.game_last(byref(games))
+
+    def game_remove_unordered(self, games: GamePtrArrayPtr, index: int) -> GamePtrArrayPtr:
+        self.lib.game_remove_unordered(byref(games), c_size_t(index))
+        return games
+
+    def game_array_from_list(self, values: list[GamePtr]) -> GamePtrArrayPtr:
+        games = self.game_array_new()
+        if values:
+            games = self.game_reserve(games, len(values))
+            for value in values:
+                games = self.game_push(games, value)
+        return games
+
+    def game_from_game_arrays(self, lefts: GamePtrArrayPtr, rights: GamePtrArrayPtr) -> GamePtr:
+        return self.lib.game_from_games(lefts, rights)
+
+    def game_from_games(self, lefts: list, rights: list) -> GamePtr:
+        left_arr = self.game_array_from_list(lefts)
+        right_arr = self.game_array_from_list(rights)
+        try:
+            return self.game_from_game_arrays(left_arr, right_arr)
+        finally:
+            self.game_free_array(left_arr)
+            self.game_free_array(right_arr)
 
     def game_canonicalize(self, game: GamePtr) -> GamePtr:
         return self.lib.game_canonicalize(game)

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "short_game.h"
 
+
 typedef struct {
     uint8_t used;
     Game *node;
@@ -18,5 +19,6 @@ void game_intern_cache_prepare(Game *G);
 // Vrati existujici identicky kanonicky uzel nebo vlozi a vrati G
 Game* game_intern_cache_get(Game *G);
 
+Game* game_intern_cache_prep_and_get(Game *G);
 
 #endif // GAME_INTERN_CACHE_H

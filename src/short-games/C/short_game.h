@@ -28,7 +28,10 @@ void short_game_init(float memory_multiplier);
 void short_game_free(void);
 
 // Basic game construction operation.
-Game* game_make(Game **left, Game **right);
+Game* game_new();
+Game* game_from_games(Game **left, Game **right);
+Game *game_from_game(Game *left, Game *right);
+
 
 // Conway game comparison.
 int game_geq(Game *G, Game *H); // Returns 1 if G >= H

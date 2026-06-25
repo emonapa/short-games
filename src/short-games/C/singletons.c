@@ -13,7 +13,10 @@
 #include <string.h>
 
 #include "shared/error.h"
-#include "shared/darray.h"
+
+#include "game_darray.h"
+
+#include "game_intern_cache.h"
 
 #include "singletons.h"
 #include "short_game.h"
@@ -31,36 +34,36 @@ static char print_buffer[65536];
 
 void singletons_init(void) {
     // 0 = { | }
-    val_zero = game_canonicalize(game_make(NULL, NULL));
+    val_zero = game_intern_cache_prep_and_get(game_new());
 
     // * = { 0 | 0 }
-    Game **arr_zero = NULL;
-    da_push(arr_zero, val_zero);
-    val_star = game_canonicalize(game_make(arr_zero, arr_zero));
+    val_star = game_intern_cache_prep_and_get(game_from_game(val_zero, val_zero));
 
     // 1 = { 0 | }
-    val_one = game_canonicalize(game_make(arr_zero, NULL));
+    val_one = game_intern_cache_prep_and_get(game_from_game(val_zero, NULL));
 
     // ↑ = { 0 | * }
-    Game **arr_star = NULL;
-    da_push(arr_star, val_star);
-    val_up = game_canonicalize(game_make(arr_zero, arr_star));
+    val_up = game_intern_cache_prep_and_get(game_from_game(val_zero, val_star));
 
     // ↓ = { * | 0 }
-    val_down = game_canonicalize(game_make(arr_star, arr_zero));
+    val_down = game_intern_cache_prep_and_get(game_from_game(val_star, val_zero));
 
     // ↑* = ↑ + * = { 0, * | 0 }
+    Game **arr_zero = NULL;
+    game_push(&arr_zero, val_zero);
+
     Game **arr_zero_star = NULL;
-    da_push(arr_zero_star, val_zero);
-    da_push(arr_zero_star, val_star);
-    val_up_star = game_canonicalize(game_make(arr_zero_star, arr_zero));
+    game_push(&arr_zero_star, val_zero);
+    game_push(&arr_zero_star, val_star);
+    val_up_star = game_intern_cache_prep_and_get(game_from_games(arr_zero_star,
+                                                                 arr_zero));
 
     // ↓* = ↓ + * = { 0 | 0, * }
-    val_down_star = game_canonicalize(game_make(arr_zero, arr_zero_star));
+    val_down_star = game_intern_cache_prep_and_get(game_from_games(arr_zero,
+                                                                   arr_zero_star));
 
-    da_free(arr_zero);
-    da_free(arr_star);
-    da_free(arr_zero_star);
+    game_free(&arr_zero);
+    game_free(&arr_zero_star);
 }
 
 // -----------------------------------------------------------------
@@ -86,7 +89,7 @@ static int get_up_arrow_multiple(Game *G) {
     Game *curr = G;
 
     while (1) {
-        if (da_len(curr->left) != 1 || da_len(curr->right) != 1) return 0;
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
 
         if (curr->left[0] != val_zero) return 0;
         if (curr->right[0] == val_up_star) return count + 1;
@@ -104,7 +107,7 @@ static int get_down_arrow_multiple(Game *G) {
     Game *curr = G;
 
     while (1) {
-        if (da_len(curr->left) != 1 || da_len(curr->right) != 1) return 0;
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
 
         if (curr->right[0] != val_zero) return 0;
         if (curr->left[0] == val_down_star) return count + 1;
@@ -123,12 +126,12 @@ static int get_down_arrow_multiple(Game *G) {
 // Returns 'n' for the value *n, where *0 = 0, or -1 if this is not a nimber.
 static int get_nimber_value(Game *G) {
     if (!G) return -1;
-    if (da_len(G->left) == 0 && da_len(G->right) == 0) return 0; // Zero is *0.
+    if (game_len(&G->left) == 0 && game_len(&G->right) == 0) return 0; // Zero is *0.
 
     // A nimber must have the same number of Left and Right options.
-    if (da_len(G->left) != da_len(G->right)) return -1;
+    if (game_len(&G->left) != game_len(&G->right)) return -1;
 
-    int n = (int)da_len(G->left);
+    int n = (int)game_len(&G->left);
 
     // Track whether all values from 0 to n - 1 were found.
     int *found_L = (int*)calloc(n, sizeof(int));
@@ -171,15 +174,15 @@ static int get_nimber_value(Game *G) {
 // Returns 1 if the canonical game is a dyadic or integer number.
 int is_number(Game *G) {
     if (!G) return 0;
-    if (da_len(G->left) == 0 && da_len(G->right) == 0) return 1;
-    if (da_len(G->left) > 1 || da_len(G->right) > 1) return 0;
+    if (game_len(&G->left) == 0 && game_len(&G->right) == 0) return 1;
+    if (game_len(&G->left) > 1 || game_len(&G->right) > 1) return 0;
 
-    if (da_len(G->left) == 1 && !is_number(G->left[0])) return 0;
-    if (da_len(G->right) == 1 && !is_number(G->right[0])) return 0;
+    if (game_len(&G->left) == 1 && !is_number(G->left[0])) return 0;
+    if (game_len(&G->right) == 1 && !is_number(G->right[0])) return 0;
 
     // Number condition: no GL >= GR may hold.
     // Without this check, for example * = {0|0} would be treated as a number.
-    if (da_len(G->left) == 1 && da_len(G->right) == 1)
+    if (game_len(&G->left) == 1 && game_len(&G->right) == 1)
         if (game_geq(G->left[0], G->right[0])) return 0;
 
     return 1;
@@ -198,18 +201,18 @@ int get_dyadic_value(Game *G, double *out_val) {
     // A canonical number must have at most one option on each side.
     // This only works when the number is in canonical form, meaning
     // there are no dominated options in this case.
-    if (da_len(G->left) > 1 || da_len(G->right) > 1) return 0;
+    if (game_len(&G->left) > 1 || game_len(&G->right) > 1) return 0;
 
     double l_val = 0.0, r_val = 0.0;
     int has_L = 0, has_R = 0;
 
     // A Left option, if present, must also be a number.
-    if (da_len(G->left) == 1) {
+    if (game_len(&G->left) == 1) {
         if (!get_dyadic_value(G->left[0], &l_val)) return 0;
         has_L = 1;
     }
     // A Right option, if present, must also be a number.
-    if (da_len(G->right) == 1) {
+    if (game_len(&G->right) == 1) {
         if (!get_dyadic_value(G->right[0], &r_val)) return 0;
         has_R = 1;
     }
@@ -238,7 +241,7 @@ int get_dyadic_value(Game *G, double *out_val) {
 // Is this game exactly base + *, i.e. {base | base}?
 int is_base_plus_star(Game *G, Game *base) {
     if (!G || !base) return 0;
-    return (da_len(G->left) == 1 && da_len(G->right) == 1 &&
+    return (game_len(&G->left) == 1 && game_len(&G->right) == 1 &&
             G->left[0] == base && G->right[0] == base);
 }
 
@@ -249,7 +252,7 @@ int is_base_plus_star(Game *G, Game *base) {
 // -----------------------------------------------------------------
 static int get_number_plus_down_arrows(Game *G, double *out_base_val) {
     // Must have exactly one option on each side.
-    if (!G || da_len(G->left) != 1 || da_len(G->right) != 1) return 0;
+    if (!G || game_len(&G->left) != 1 || game_len(&G->right) != 1) return 0;
 
     Game *base = G->right[0];
     if (!is_number(base)) return 0; // The base must be a number.
@@ -258,21 +261,21 @@ static int get_number_plus_down_arrows(Game *G, double *out_base_val) {
     Game *curr = G;
 
     while (1) {
-        if (da_len(curr->left) != 1 || da_len(curr->right) != 1) return 0;
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
         if (curr->right[0] != base) return 0; // The base must remain the same.
 
         Game *next = curr->left[0]; // Descend to the left.
 
-        if (da_len(next->left) == 1 && next->left[0] == base) {
+        if (game_len(&next->left) == 1 && next->left[0] == base) {
 
             // a) next->right == base, which is {base | base}, exactly base + *.
-            if (da_len(next->right) == 1 && next->right[0] == base) {
+            if (game_len(&next->right) == 1 && next->right[0] == base) {
                 get_dyadic_value(base, out_base_val);
                 return count;
             }
 
             // b) next->right == {base, {base|base}}.
-            if (da_len(next->right) == 2) {
+            if (game_len(&next->right) == 2) {
                 int has_base = (next->right[0] == base || next->right[1] == base);
                 int has_star = (is_base_plus_star(next->right[0], base) || is_base_plus_star(next->right[1], base));
                 if (has_base && has_star) {
@@ -292,7 +295,7 @@ static int get_number_plus_down_arrows(Game *G, double *out_base_val) {
 
 static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
     // Must have exactly one option on each side.
-    if (!G || da_len(G->left) != 1 || da_len(G->right) != 1) return 0;
+    if (!G || game_len(&G->left) != 1 || game_len(&G->right) != 1) return 0;
 
     // For the up arrow (↑ = {0 | *}), the base number is always on the left.
     Game *base = G->left[0];
@@ -302,21 +305,21 @@ static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
     Game *curr = G;
 
     while (1) {
-        if (da_len(curr->left) != 1 || da_len(curr->right) != 1) return 0;
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
         if (curr->left[0] != base) return 0; // The base is now on the left.
 
         Game *next = curr->right[0]; // Descend to the right.
 
-        if (da_len(next->right) == 1 && next->right[0] == base) {
+        if (game_len(&next->right) == 1 && next->right[0] == base) {
 
             // next->left == base, which is {base | base}.
-            if (da_len(next->left) == 1 && next->left[0] == base) {
+            if (game_len(&next->left) == 1 && next->left[0] == base) {
                 get_dyadic_value(base, out_base_val);
                 return count;
             }
 
             // next->left == {base, {base|base}}.
-            if (da_len(next->left) == 2) {
+            if (game_len(&next->left) == 2) {
                 int has_base = (next->left[0] == base || next->left[1] == base);
                 int has_star = (is_base_plus_star(next->left[0], base) || is_base_plus_star(next->left[1], base));
                 if (has_base && has_star) {
@@ -334,7 +337,7 @@ static int get_number_plus_up_arrows(Game *G, double *out_base_val) {
 
 
 int is_dyadic_plus_star(Game *G, double *out_dyadic_val) {
-    if (da_len(G->left) == 1 && da_len(G->right) == 1 && G->left[0] == G->right[0]) {
+    if (game_len(&G->left) == 1 && game_len(&G->right) == 1 && G->left[0] == G->right[0]) {
         if(get_dyadic_value(G->left[0], out_dyadic_val)) return 1;
     }
     return 0;
@@ -414,7 +417,7 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
         }
 
         // Dyadic number + *.
-        if (da_len(G->left) == 1 && da_len(G->right) == 1 && G->left[0] == G->right[0]) {
+        if (game_len(&G->left) == 1 && game_len(&G->right) == 1 && G->left[0] == G->right[0]) {
             if(get_dyadic_value(G->left[0], &num_val)) {
                 snprintf(temp, sizeof(temp), "%g + *", num_val);
                 buffer_append(temp);
@@ -425,14 +428,14 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
 
     // Fallback.
     buffer_append("{");
-    for (size_t i = 0; i < da_len(G->left); i++) {
+    for (size_t i = 0; i < game_len(&G->left); i++) {
         game_get_string_recursive(G->left[i], format);
-        if (i < da_len(G->left) - 1) buffer_append(", ");
+        if (i < game_len(&G->left) - 1) buffer_append(", ");
     }
     buffer_append(" | ");
-    for (size_t i = 0; i < da_len(G->right); i++) {
+    for (size_t i = 0; i < game_len(&G->right); i++) {
         game_get_string_recursive(G->right[i], format);
-        if (i < da_len(G->right) - 1) buffer_append(", ");
+        if (i < game_len(&G->right) - 1) buffer_append(", ");
     }
     buffer_append("}");
 }
@@ -460,7 +463,7 @@ Game* make_int(int n) {
         Game **left = NULL;
         da_push(left, prev);
 
-        Game *result = game_canonicalize(game_make(left, NULL));
+        Game *result = game_canonicalize(game_from_games(left, NULL));
         da_free(left);
         return result;
     } else {
@@ -468,7 +471,7 @@ Game* make_int(int n) {
         Game **right = NULL;
         da_push(right, prev);
 
-        Game *result = game_canonicalize(game_make(NULL, right));
+        Game *result = game_canonicalize(game_from_games(NULL, right));
         da_free(right);
         return result;
     }
@@ -498,7 +501,7 @@ Game* make_dyadic(int p, int q) {
     da_push(l_arr, left);
     da_push(r_arr, right);
 
-    Game *result = game_canonicalize(game_make(l_arr, r_arr));
+    Game *result = game_canonicalize(game_from_games(l_arr, r_arr));
     da_free(l_arr);
     da_free(r_arr);
     return result;
@@ -517,7 +520,7 @@ Game* make_nimber(int n) {
         da_push(opts, make_nimber(i));
     }
 
-    Game *result = game_canonicalize(game_make(opts, opts));
+    Game *result = game_canonicalize(game_from_games(opts, opts));
     da_free(opts);
     return result;
 }
@@ -562,7 +565,7 @@ Game* game_negate(Game *G) {
     Game **new_left = NULL;
     Game **new_right = NULL;
 
-    for (size_t i = 0; i < da_len(G->right); i++) {
+    for (size_t i = 0; i < game_len(&G->right); i++) {
         Game *neg = game_negate(G->right[i]);
         if (!neg) {
             da_free(new_left);
@@ -572,7 +575,7 @@ Game* game_negate(Game *G) {
         da_push(new_left, neg);
     }
 
-    for (size_t i = 0; i < da_len(G->left); i++) {
+    for (size_t i = 0; i < game_len(&G->left); i++) {
         Game *neg = game_negate(G->left[i]);
         if (!neg) {
             da_free(new_left);
@@ -582,7 +585,7 @@ Game* game_negate(Game *G) {
         da_push(new_right, neg);
     }
 
-    Game *res = game_canonicalize(game_make(new_left, new_right));
+    Game *res = game_canonicalize(game_from_games(new_left, new_right));
     da_free(new_left);
     da_free(new_right);
     return res;
@@ -603,15 +606,15 @@ Game* cool_with_star(Game *G) {
     Game **new_right = NULL;
     Game *star = game_star();
 
-    for (size_t i = 0; i < da_len(G->left); i++) {
-        da_push(new_left, game_add(cool_with_star(G->left[i]), star));
+    game_foreach(left_game, &G->left) {
+        da_push(new_left, game_add(cool_with_star(*left_game), star));
     }
 
-    for (size_t i = 0; i < da_len(G->right); i++) {
-        da_push(new_right, game_add(cool_with_star(G->right[i]), star));
+    game_foreach(right_game, &G->right) {
+        da_push(new_right, game_add(cool_with_star(*right_game), star));
     }
 
-    Game *result = game_canonicalize(game_make(new_left, new_right));
+    Game *result = game_canonicalize(game_from_games(new_left, new_right));
 
     da_free(new_left);
     da_free(new_right);
@@ -647,15 +650,15 @@ Game* star_projection(Game *H) {
     Game **new_left = NULL;
     Game **new_right = NULL;
 
-    for (size_t i = 0; i < da_len(H0->left); i++) {
+    for (size_t i = 0; i < game_len(&H0->left); i++) {
         da_push(new_left, star_projection(H0->left[i]));
     }
 
-    for (size_t i = 0; i < da_len(H0->right); i++) {
+    for (size_t i = 0; i < game_len(&H0->right); i++) {
         da_push(new_right, star_projection(H0->right[i]));
     }
 
-    Game *result = game_canonicalize(game_make(new_left, new_right));
+    Game *result = game_canonicalize(game_from_games(new_left, new_right));
 
     da_free(new_left);
     da_free(new_right);

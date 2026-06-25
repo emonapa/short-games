@@ -16,8 +16,9 @@
 
 #include "shared/error.h"
 #include "shared/stack.h"
-#include "game_darray.h"
 #include "shared/raw_game.h"
+
+#include "game_darray.h"
 
 #include "game_intern_cache.h"
 #include "game_operations_cache.h"
@@ -72,21 +73,36 @@ void short_game_free(void) {
 /* ------------------------------------------------------------
    Basic node construction
    ------------------------------------------------------------ */
-Game* game_make(Game **left, Game **right) {
-    Game *g = (Game*)malloc(sizeof(Game));
-    if (g == NULL) error_exit(ERR_MALLOC, "");
 
+Game* game_new() {
+    Game *g = (Game*)malloc(sizeof(Game));
+    if (g == NULL) error_exit(ERR_MALLOC, "New Game can't be created.\n");
     g->left = NULL;
     g->right = NULL;
 
-    if (left != NULL) game_append_many(&g->left, left);
-    if (right != NULL) game_append_many(&g->right, right);
-
-    make_count++;
     if (make_count % info_count == 0) {
         printf("[INFO] make count %d.   * %d\n",
                (int)(make_count / info_count), info_count);
     }
+    make_count++;
+
+    return g;
+}
+
+Game* game_from_games(Game **left, Game **right) {
+    Game *g = game_new();
+
+    if (left != NULL) game_append_many(&g->left, left);
+    if (right != NULL) game_append_many(&g->right, right);
+
+    return g;
+}
+
+Game *game_from_game(Game *left, Game *right) {
+    Game *g = game_new();
+
+    if (left != NULL) game_append(&g->left, left);
+    if (right != NULL) game_append(&g->right, right);
 
     return g;
 }
@@ -315,6 +331,9 @@ Game* game_add(Game *G, Game *H) {
     Game **left_opts = NULL;
     Game **right_opts = NULL;
 
+    game_reserve(&left_opts, game_len(&G->left) + game_len(&H->left));
+    game_reserve(&right_opts, game_len(&G->right) + game_len(&H->right));
+
     for (size_t i = 0; i < game_len(&G->left); i++) {
         game_push(&left_opts, game_add(G->left[i], H));
     }
@@ -329,7 +348,7 @@ Game* game_add(Game *G, Game *H) {
         game_push(&right_opts, game_add(G, H->right[i]));
     }
 
-    Game *sum = game_canonicalize(game_make(left_opts, right_opts));
+    Game *sum = game_canonicalize(game_from_games(left_opts, right_opts));
     if (sum == NULL) warning("Got NULL from canonization.\n");
 
     game_free(&left_opts);
@@ -373,7 +392,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
         }
     }
 
-    Game *G = game_canonicalize_shallow(game_make(left_opts, right_opts));
+    Game *G = game_canonicalize_shallow(game_from_games(left_opts, right_opts));
 
     game_free(&left_opts);
     game_free(&right_opts);
