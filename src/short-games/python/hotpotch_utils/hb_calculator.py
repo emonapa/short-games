@@ -118,7 +118,7 @@ class GameParser:
             lefts = self._parse_game_array(left_str)
             rights = self._parse_game_array(right_str)
             try:
-                return self.s.game_from_game_arrays(lefts, rights)
+                return self.s.game_from_games(lefts, rights)
             finally:
                 self.s.game_free_array(lefts)
                 self.s.game_free_array(rights)

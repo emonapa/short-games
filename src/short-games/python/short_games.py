@@ -119,6 +119,9 @@ class ShortGameSolver:
         self.lib.game_geq.argtypes = [GamePtr, GamePtr]
         self.lib.game_geq.restype = c_int
 
+        self.lib.game_from_game.argtypes = [GamePtr, GamePtr]
+        self.lib.game_from_game.restype = GamePtr
+
         self.lib.game_from_games.argtypes = [GamePtrArrayPtr, GamePtrArrayPtr]
         self.lib.game_from_games.restype = GamePtr
 
@@ -267,8 +270,8 @@ class ShortGameSolver:
                 games = self.game_push(games, value)
         return games
 
-    def game_from_game_arrays(self, lefts: GamePtrArrayPtr, rights: GamePtrArrayPtr) -> GamePtr:
-        return self.lib.game_from_games(lefts, rights)
+    def game_from_game(self, left: GamePtr | None, right: GamePtr | None) -> GamePtr:
+        return self.lib.game_from_game(left, right)
 
     def game_from_games(self, lefts: list, rights: list) -> GamePtr:
         left_arr = self.game_array_from_list(lefts)
