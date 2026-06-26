@@ -9,7 +9,7 @@ from ctypes import (
     c_uint64,
 )
 
-from short_games import RawGameSolver, void_ptr_to
+from game_solver import GameSolver, void_ptr_to
 
 
 DEFAULT_HB_LIB_PATH = "../../../build/short-games/hotpotch/libhotpotch.so"
@@ -79,7 +79,7 @@ def full_live_mask(num_edges: int) -> int:
     return (1 << num_edges) - 1 if num_edges else 0
 
 
-class HBSolver(RawGameSolver):
+class HBSolver(GameSolver):
     RawGameType = CBaseGraph
     PositionType = CPosition
 

@@ -5,7 +5,7 @@ from ctypes import (
     c_uint64,
 )
 
-from short_games import RawGameSolver
+from game_solver import GameSolver
 
 DEFAULT_LIB_PATH = "../../../build/short-games/toads_and_frogs/libtoads_and_frogs.so"
 
@@ -104,8 +104,8 @@ def print_board(length: int, toads_mask: int = 0, frogs_mask: int = 0) -> None:
     print("Pole:  " + " ".join(cell_line))
 
 
-class ToadsAndFrogsSolver(RawGameSolver):
-    RawGameType = CToadsAndFrogsBoard
+class ToadsAndFrogsSolver(GameSolver):
+    GameType = CToadsAndFrogsBoard
     PositionType = CToadsAndFrogsPosition
 
     def __init__(self, lib_path: str = DEFAULT_LIB_PATH):

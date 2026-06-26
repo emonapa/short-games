@@ -1,37 +1,31 @@
 """
 hb_calculator.py - CGT calculator panel.
 
-Python is responsible only for:
-  - parsing the user's string into tokens
-  - recursively handling the {L | R} constructor
-  - calling C helpers for all primitive game values
+This file uses only the high-level Game API.
 
-C (singletons.c) is responsible for:
-  - make_int(int n)
-  - make_dyadic(int p, int q)
-  - make_nimber(int n)
-  - make_up_multiple(int n, int with_star)
-  - make_down_multiple(int n, int with_star)
-  - game_star(), game_up(), game_down(), game_zero()
-  - game_add(), game_canonicalize()
-  - game_get_string(Game*, enum output_format)
-
-Required additions to HBSolver in hb_solver.py - see bottom of this file.
+The parser returns Game objects. It never touches GamePtr, GamePtrArrayPtr,
+GameRuntime or GameSolver directly.
 """
 
 from __future__ import annotations
+
 from typing import List
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QLineEdit, QComboBox, QFrame, QCheckBox,
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QLineEdit,
+    QComboBox,
+    QFrame,
+    QCheckBox,
 )
 
 from hb_theme import THEME
+from game import Game, FORMAT_RAW, FORMAT_FORMATED
 
-
-# -- Widget helpers ------------------------------------------------------------
 
 def _divider() -> QFrame:
     f = QFrame()
@@ -89,131 +83,156 @@ def _raw_toggle() -> QCheckBox:
     return cb
 
 
-# -- Parser --------------------------------------------------------------------
-#
-# Handles ONLY structural parsing.  All primitive game creation is delegated
-# to the solver (C functions).
-
 class GameParser:
-    def __init__(self, solver):
-        self.s = solver
+    """
+    Parser for short-game expressions.
 
-    def parse(self, text: str):
+    Supported examples:
+        0
+        1
+        -2
+        1/2
+        -3/4
+        *
+        *3
+        ↑
+        ↓
+        2↑
+        2^
+        3↓
+        3v
+        ↑*
+        ↓*
+        {0,* | 1}
+    """
+
+    def parse(self, text: str) -> Game:
         t = text.strip()
+
         if not t:
             raise ValueError("Empty input")
+
         return self._parse(t)
 
-    def _parse(self, s: str):
+    def _parse(self, s: str) -> Game:
         s = s.strip()
 
-        # -- {L | R} - handled in Python, children delegated to C -------------
         if s.startswith("{") and s.endswith("}"):
             inner = s[1:-1]
             pipe = self._find_pipe(inner)
+
             if pipe == -1:
                 raise ValueError(f"Missing '|' in: {s}")
-            left_str  = inner[:pipe].strip()
+
+            left_str = inner[:pipe].strip()
             right_str = inner[pipe + 1:].strip()
-            lefts = self._parse_game_array(left_str)
-            rights = self._parse_game_array(right_str)
-            try:
-                return self.s.game_from_games(lefts, rights)
-            finally:
-                self.s.game_free_array(lefts)
-                self.s.game_free_array(rights)
 
-        # -- * (star) ----------------------------------------------------------
+            lefts = self._parse_list(left_str)
+            rights = self._parse_list(right_str)
+
+            return Game.from_games(lefts, rights)
+
         if s == "*":
-            return self.s.game_star()
+            return Game.star()
 
-        # -- *n (nimber) -------------------------------------------------------
         if s.startswith("*") and len(s) > 1:
             try:
                 n = int(s[1:])
             except ValueError:
                 raise ValueError(f"Invalid nimber: '{s}'")
-            return self.s.make_nimber(n)
 
-        # -- arrows: ↑/^ ↓/v  with optional multiplier and * suffix ---------------
+            return Game.nimber(n)
+
         s = s.replace("^", "↑").replace("v", "↓")
-        for arrow, maker in [("↑", self.s.make_up_multiple),
-                              ("↓", self.s.make_down_multiple)]:
-            if arrow in s:
-                idx       = s.index(arrow)
-                pre       = s[:idx].strip()
-                suffix    = s[idx + len(arrow):].strip()
-                mult      = int(pre) if pre else 1
-                with_star = 1 if suffix == "*" else 0
-                if suffix and suffix != "*":
-                    raise ValueError(f"Unexpected suffix after arrow: '{suffix}'")
-                return maker(mult, with_star)
 
-        # -- dyadic rational p/q -----------------------------------------------
+        if s == "↑*":
+            return Game.up_star()
+
+        if s == "↓*":
+            return Game.down_star()
+
+        for arrow, maker in [
+            ("↑", Game.up),
+            ("↓", Game.down),
+        ]:
+            if arrow in s:
+                idx = s.index(arrow)
+                pre = s[:idx].strip()
+                suffix = s[idx + len(arrow):].strip()
+
+                try:
+                    mult = int(pre) if pre else 1
+                except ValueError:
+                    raise ValueError(f"Invalid arrow multiplier: '{pre}'")
+
+                if suffix == "*":
+                    return maker(mult) + Game.star()
+
+                if suffix:
+                    raise ValueError(f"Unexpected suffix after arrow: '{suffix}'")
+
+                return maker(mult)
+
         if "/" in s:
             parts = s.split("/")
+
             if len(parts) == 2:
                 try:
                     p = int(parts[0].strip())
                     q = int(parts[1].strip())
                 except ValueError:
                     raise ValueError(f"Can't parse a fraction: '{s}'")
-                result = self.s.make_dyadic(p, q)
-                if result is None:
-                    raise ValueError(f"The denominator must be a power of 2: '{s}'")
-                return result
 
-        # -- integer -----------------------------------------------------------
+                return Game.dyadic(p, q)
+
         try:
-            return self.s.make_int(int(s))
+            return Game.integer(int(s))
         except ValueError:
             pass
 
         raise ValueError(f"Nelze parsovat: '{s}'")
 
-    # -- internals -------------------------------------------------------------
-
-    def _parse_list(self, s: str) -> list:
+    def _parse_list(self, s: str) -> list[Game]:
         s = s.strip()
+
         if not s:
             return []
-        return [self._parse(p) for p in self._split_top(s, ",")]
 
-    def _parse_game_array(self, s: str):
-        games = self.s.game_array_new()
-        parts = self._split_top(s.strip(), ",") if s.strip() else []
-
-        if parts:
-            games = self.s.game_reserve(games, len(parts))
-            for part in parts:
-                games = self.s.game_push(games, self._parse(part))
-
-        return games
+        return [self._parse(part) for part in self._split_top(s, ",")]
 
     def _find_pipe(self, s: str) -> int:
         depth = 0
+
         for i, c in enumerate(s):
-            if c == "{":   depth += 1
-            elif c == "}": depth -= 1
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
             elif c == "|" and depth == 0:
                 return i
+
         return -1
 
     def _split_top(self, s: str, sep: str) -> List[str]:
-        parts, depth, cur = [], 0, []
+        parts = []
+        depth = 0
+        cur = []
+
         for c in s:
-            if c == "{":   depth += 1
-            elif c == "}": depth -= 1
+            if c == "{":
+                depth += 1
+            elif c == "}":
+                depth -= 1
+
             if c == sep and depth == 0:
                 parts.append("".join(cur).strip())
                 cur = []
             else:
                 cur.append(c)
+
         parts.append("".join(cur).strip())
         return parts
 
-
-# -- CalculatorPanel -----------------------------------------------------------
 
 class CalculatorPanel(QWidget):
     """Calculator panel shown at stack index 2."""
@@ -236,53 +255,63 @@ class CalculatorPanel(QWidget):
         layout.setContentsMargins(44, 40, 44, 40)
         layout.setSpacing(0)
 
-        # -- Header ---------------------------------------------------------
         header_row = QHBoxLayout()
+
         title = QLabel("Calculator")
         title.setStyleSheet("color: white; font-size: 22px; font-weight: bold;")
+
         back_btn = QPushButton("← Back")
         back_btn.setFixedWidth(80)
         back_btn.clicked.connect(main_window.open_calculator)
+
         header_row.addWidget(title)
         header_row.addStretch()
         header_row.addWidget(back_btn)
+
         layout.addLayout(header_row)
 
         syntax = QLabel(
-            "Syntax:  0  1  -2  1/2  -3/4  *  *3  ↑  ↓  2↑ 2^  3↓ 3v  ↑*  ↓*  {0,* | 1}"
+            "Syntax:  0  1  -2  1/2  -3/4  *  *3  ↑  ↓  "
+            "2↑ 2^  3↓ 3v  ↑*  ↓*  {0,* | 1}"
         )
         syntax.setStyleSheet("color: #777; font-size: 12px;")
+
         layout.addWidget(syntax)
         layout.addSpacing(28)
 
-        # -- Unary ----------------------------------------------------------
         sec1 = QLabel("UNARY OPERATION")
         sec1.setStyleSheet(
             "color: #999; font-size: 13px; font-weight: bold; letter-spacing: 1px;"
         )
+
         layout.addWidget(sec1)
         layout.addSpacing(14)
 
-        # Game A -> Game B
         row1 = QHBoxLayout()
+
         self.unary_input = _input("Game G")
-        self.unary_op    = _combo(["−G  (negace)", "Canonization", "Is infinitezimal"])
-        calc1_btn        = _btn("=")
+        self.unary_op = _combo(["−G  (negace)", "Canonization", "Is infinitesimal"])
+        calc1_btn = _btn("=")
+
         row1.addWidget(self.unary_input, 3)
         row1.addWidget(self.unary_op, 2)
         row1.addWidget(calc1_btn)
+
         layout.addLayout(row1)
         layout.addSpacing(8)
 
-        # unary result
         res1_row = QHBoxLayout()
+
         res1_lbl = QLabel("Result:")
         res1_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
+
         self.unary_result = _result_box()
-        self.unary_raw    = _raw_toggle()
+        self.unary_raw = _raw_toggle()
+
         res1_row.addWidget(res1_lbl)
         res1_row.addWidget(self.unary_result, 1)
         res1_row.addWidget(self.unary_raw)
+
         layout.addLayout(res1_row)
 
         calc1_btn.clicked.connect(self._calc_unary)
@@ -291,45 +320,52 @@ class CalculatorPanel(QWidget):
         layout.addWidget(_divider())
         layout.addSpacing(28)
 
-        # -- Binary ---------------------------------------------------------
         sec2 = QLabel("BINARY OPERATION")
         sec2.setStyleSheet(
             "color: #999; font-size: 13px; font-weight: bold; letter-spacing: 1px;"
         )
+
         layout.addWidget(sec2)
         layout.addSpacing(14)
 
-        # (Game, Game B) -> Game C
         row2 = QHBoxLayout()
-        self.bin_left  = _input("Game A")
-        self.bin_op    = _combo(["+", "-", "≥", "≤", ">", "<", "=", "||"])
+
+        self.bin_left = _input("Game A")
+        self.bin_op = _combo(["+", "-", "≥", "≤", ">", "<", "=", "||"])
         self.bin_right = _input("Game B")
-        calc2_btn      = _btn("=")
+        calc2_btn = _btn("=")
+
         row2.addWidget(self.bin_left, 3)
         row2.addWidget(self.bin_op, 1)
         row2.addWidget(self.bin_right, 3)
         row2.addWidget(calc2_btn)
+
         layout.addLayout(row2)
         layout.addSpacing(8)
 
-        # binary result
         res2_row = QHBoxLayout()
+
         res2_lbl = QLabel("Result:")
         res2_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
+
         self.bin_result = _result_box()
-        self.bin_raw    = _raw_toggle()
+        self.bin_raw = _raw_toggle()
+
         res2_row.addWidget(res2_lbl)
         res2_row.addWidget(self.bin_result, 1)
         res2_row.addWidget(self.bin_raw)
+
         layout.addLayout(res2_row)
 
-        # note
         layout.addSpacing(18)
-        note_row = QHBoxLayout()
         layout.addWidget(_divider())
         layout.addSpacing(18)
-        note_lbl = QLabel("Note: raw output formats only defined number, which is 0 = { | }.")
+
+        note_row = QHBoxLayout()
+
+        note_lbl = QLabel("Note: raw output format expands games structurally.")
         note_lbl.setStyleSheet("color: #aaa; font-size: 14px;")
+
         note_row.addWidget(note_lbl)
         layout.addLayout(note_row)
 
@@ -340,85 +376,78 @@ class CalculatorPanel(QWidget):
         self._apply_theme(THEME.theme)
         THEME.changed.connect(self._apply_theme)
 
-    # -- Theme -----------------------------------------------------------------
-
     def _apply_theme(self, theme) -> None:
         self.setStyleSheet(f"background-color: {theme.settings_bg_css()};")
         self.card.setStyleSheet(
             f"background-color: {theme.settings_card_bg_css()}; border-radius: 14px;"
         )
 
-    # -- Internals -------------------------------------------------------------
-
-    def _solver(self):
-        s = self.mw.solver
-        if s is None:
-            raise RuntimeError("Solver is not loaded")
-        return s
-
     def _fmt(self, raw_cb: QCheckBox) -> int:
-        return 0 if raw_cb.isChecked() else 1
+        return FORMAT_RAW if raw_cb.isChecked() else FORMAT_FORMATED
 
-    def _str(self, ptr, raw_cb: QCheckBox) -> str:
-        return self._solver().get_game_value_string(ptr, self._fmt(raw_cb))
+    def _str(self, game: Game, raw_cb: QCheckBox) -> str:
+        return game.to_string(self._fmt(raw_cb))
 
-    # -- Calculation -----------------------------------------------------------
+    def _parser(self) -> GameParser:
+        return GameParser()
 
     def _calc_unary(self):
         try:
-            s = self._solver()
-            g = GameParser(s).parse(self.unary_input.text())
+            parser = self._parser()
+            g = parser.parse(self.unary_input.text())
 
-            if self.unary_op.currentIndex() == 0: # negace
-                result = s.game_negate(g)
+            op_index = self.unary_op.currentIndex()
+
+            if op_index == 0:
+                result = -g
                 self.unary_result.setText(self._str(result, self.unary_raw))
-            elif self.unary_op.currentIndex() == 1: # kanonizace
-                result = s.game_canonicalize(g)
+
+            elif op_index == 1:
+                result = g.canonical
                 self.unary_result.setText(self._str(result, self.unary_raw))
-            elif self.unary_op.currentIndex() == 2: # reduced canonical form
-                result_cooling = s.cool_with_star(g)
-                result = s.star_projection(result_cooling)
-                result_text = self._str(result, self.unary_raw)
-                if (result_text == "0"):
-                    self.unary_result.setText("True")
-                else:
-                    self.unary_result.setText("False")
+
+            elif op_index == 2:
+                self.unary_result.setText("True" if g.is_infinitesimal else "False")
 
         except Exception as e:
             self.unary_result.setText(f"Error: {e}")
 
     def _calc_binary(self):
         try:
-            s  = self._solver()
-            p  = GameParser(s)
-            a  = p.parse(self.bin_left.text())
-            b  = p.parse(self.bin_right.text())
+            parser = self._parser()
+
+            a = parser.parse(self.bin_left.text())
+            b = parser.parse(self.bin_right.text())
             op = self.bin_op.currentText()
 
             if op == "+":
-                a_canon = s.game_canonicalize(a)
-                b_canon = s.game_canonicalize(b)
-                result = s.game_canonicalize(s.game_add(a_canon, b_canon))
+                result = (a.canonical + b.canonical).canonical
                 self.bin_result.setText(self._str(result, self.bin_raw))
 
             elif op == "-":
-                a_canon = s.game_canonicalize(a)
-                b_canon = s.game_canonicalize(b)
-                b_canon_negative = s.game_negate(b_canon)
-                result = s.game_canonicalize(s.game_add(a_canon, b_canon_negative))
+                result = (a.canonical - b.canonical).canonical
                 self.bin_result.setText(self._str(result, self.bin_raw))
 
+            elif op == "≥":
+                self.bin_result.setText("True" if a >= b else "False")
+
+            elif op == "≤":
+                self.bin_result.setText("True" if a <= b else "False")
+
+            elif op == ">":
+                self.bin_result.setText("True" if a > b else "False")
+
+            elif op == "<":
+                self.bin_result.setText("True" if a < b else "False")
+
+            elif op == "=":
+                self.bin_result.setText("True" if a == b else "False")
+
+            elif op == "||":
+                self.bin_result.setText("True" if a.fuzzy(b) else "False")
+
             else:
-                geq_ab = bool(s.game_geq(a, b))
-                geq_ba = bool(s.game_geq(b, a))
-                ans = {
-                    "≥":  geq_ab,
-                    "≤":  geq_ba,
-                    ">":  geq_ab and not geq_ba,
-                    "<":  geq_ba and not geq_ab,
-                    "=":  geq_ab and geq_ba,
-                    "||": not geq_ab and not geq_ba,
-                }[op]
-                self.bin_result.setText(" True" if ans else " False")
+                raise ValueError(f"Unknown operator: {op}")
+
         except Exception as e:
             self.bin_result.setText(f"Error: {e}")

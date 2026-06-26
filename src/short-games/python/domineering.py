@@ -5,7 +5,7 @@ from ctypes import (
     c_uint64,
 )
 
-from short_games import RawGameSolver
+from game_solver import GameSolver
 
 DEFAULT_LIB_PATH = "../../../build/short-games/domineering/libdomineering.so"
 
@@ -150,8 +150,8 @@ def print_board(width: int, height: int, removed_mask: int = 0) -> None:
         print("".join(line).rstrip())
 
 
-class DomineeringSolver(RawGameSolver):
-    RawGameType = CDomineeringBoard
+class DomineeringSolver(GameSolver):
+    GameType = CDomineeringBoard
     PositionType = CDomineeringPosition
 
     def __init__(self, lib_path: str = DEFAULT_LIB_PATH):

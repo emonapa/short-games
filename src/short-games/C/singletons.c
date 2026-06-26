@@ -119,6 +119,62 @@ static int get_down_arrow_multiple(Game *G) {
     return 0;
 }
 
+static int get_up_arrow_multiple_plus_star(Game *G) {
+    if (!G) return 0;
+
+    // ↑ + * je singleton val_up_star.
+    if (G == val_up_star) return 1;
+
+    int count = 1;
+    Game *curr = G;
+
+    while (1) {
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
+        if (curr->left[0] != val_zero) return 0;
+
+        Game *next = curr->right[0];
+
+        // {0 | ↑} = 2↑ + *
+        // {0 | 2↑} = 3↑ + *
+        // ...
+        int inner = get_up_arrow_multiple(next);
+        if (inner > 0) return inner + 1;
+
+        curr = next;
+        count++;
+    }
+
+    return 0;
+}
+
+static int get_down_arrow_multiple_plus_star(Game *G) {
+    if (!G) return 0;
+
+    // ↓ + * je singleton val_down_star.
+    if (G == val_down_star) return 1;
+
+    int count = 1;
+    Game *curr = G;
+
+    while (1) {
+        if (game_len(&curr->left) != 1 || game_len(&curr->right) != 1) return 0;
+        if (curr->right[0] != val_zero) return 0;
+
+        Game *next = curr->left[0];
+
+        // {↓ | 0} = 2↓ + *
+        // {2↓ | 0} = 3↓ + *
+        // ...
+        int inner = get_down_arrow_multiple(next);
+        if (inner > 0) return inner + 1;
+
+        curr = next;
+        count++;
+    }
+
+    return 0;
+}
+
 
 // -----------------------------------------------------------------
 // Nimber functions
@@ -370,6 +426,23 @@ static void game_get_string_recursive(Game *G, enum output_format format) {
         else if (G == val_one)  { buffer_append("1"); return; }
         else if (G == val_up_star)   { buffer_append("↑ + *"); return; }
         else if (G == val_down_star) { buffer_append("↓ + *"); return; }
+
+        // Arrow multiples plus star.
+        int up_star_arrows = get_up_arrow_multiple_plus_star(G);
+        if (up_star_arrows > 0) {
+            if (up_star_arrows == 1) snprintf(temp, sizeof(temp), "↑ + *");
+            else snprintf(temp, sizeof(temp), "%d↑ + *", up_star_arrows);
+            buffer_append(temp);
+            return;
+        }
+
+        int down_star_arrows = get_down_arrow_multiple_plus_star(G);
+        if (down_star_arrows > 0) {
+            if (down_star_arrows == 1) snprintf(temp, sizeof(temp), "↓ + *");
+            else snprintf(temp, sizeof(temp), "%d↓ + *", down_star_arrows);
+            buffer_append(temp);
+            return;
+        }
 
         // Arrow multiples.
         int up_arrows = get_up_arrow_multiple(G);
