@@ -5,10 +5,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "shared/error.h"
-#include "config.h"
-#include "darray.h"
+#include "../shared/error.h"
+#include "../config.h"
 
+#include "game_darray.h"
 #include "game_intern_cache.h"
 
 // INTERN cache
@@ -33,8 +33,8 @@ void game_intern_cache_prepare(Game *G)
     if (G == NULL) error_exit(ERR_NULL_POINTER, "");
 
     // {L1, L2 | R1, R2} = {L2, L1 | R2, R1}
-    size_t L_count = da_len(G->left);
-    size_t R_count = da_len(G->right);
+    size_t L_count = game_len(&G->left);
+    size_t R_count = game_len(&G->right);
 
     if (L_count > 1) qsort(G->left, L_count, sizeof(Game *), cmp_game_ptr);
     if (R_count > 1) qsort(G->right, R_count, sizeof(Game *), cmp_game_ptr);
@@ -55,8 +55,8 @@ static uint64_t hash_node(Game *G)
 {
     uint64_t h = 1469598103934665603ULL;
 
-    size_t L_count = da_len(G->left);
-    size_t R_count = da_len(G->right);
+    size_t L_count = game_len(&G->left);
+    size_t R_count = game_len(&G->right);
 
     h ^= (uint64_t)L_count;
     h *= 1099511628211ULL;
@@ -79,10 +79,10 @@ static uint64_t hash_node(Game *G)
 
 static int node_equal(Game *A, Game *B)
 {
-    size_t A_L_count = da_len(A->left);
-    size_t A_R_count = da_len(A->right);
-    size_t B_L_count = da_len(B->left);
-    size_t B_R_count = da_len(B->right);
+    size_t A_L_count = game_len(&A->left);
+    size_t A_R_count = game_len(&A->right);
+    size_t B_L_count = game_len(&B->left);
+    size_t B_R_count = game_len(&B->right);
 
     if (A_L_count != B_L_count) return 0;
     if (A_R_count != B_R_count) return 0;

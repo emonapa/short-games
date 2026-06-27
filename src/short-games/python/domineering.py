@@ -1,17 +1,20 @@
 import sys
+
 from ctypes import (
     Structure,
     c_uint8,
     c_uint64,
 )
 
-from game_solver import GameSolver
+from game import Game, GameConvert
+
 
 DEFAULT_LIB_PATH = "../../../build/short-games/domineering/libdomineering.so"
 
 DOMINEERING_MAX_WIDTH = 8
 DOMINEERING_MAX_HEIGHT = 8
 DOMINEERING_MAX_CELLS = 64
+
 
 class CDomineeringBoard(Structure):
     _fields_ = [
@@ -100,7 +103,6 @@ def make_removed_mask(indices: list[int]) -> int:
 def print_board(width: int, height: int, removed_mask: int = 0) -> None:
     cell_count = width * height
     index_width = max(len(str(cell_count - 1)), 1)
-
     cell_inner_width = index_width + 2
 
     canvas_height = height * 2 + 1
@@ -150,12 +152,28 @@ def print_board(width: int, height: int, removed_mask: int = 0) -> None:
         print("".join(line).rstrip())
 
 
-class DomineeringSolver(GameSolver):
-    GameType = CDomineeringBoard
+class DomineeringSolver(GameConvert):
+    RawGameType = CDomineeringBoard
     PositionType = CDomineeringPosition
 
-    def __init__(self, lib_path: str = DEFAULT_LIB_PATH):
-        super().__init__(lib_path)
+    def __init__(
+        self,
+        lib_path: str = DEFAULT_LIB_PATH,
+        memory_multiplier: float = 0.01,
+        use_c: bool = True,
+        **python_backend,
+    ):
+        super().__init__(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+            use_c=use_c,
+            **python_backend,
+        )
+
+        if self._use_c:
+            rt = self._rt()
+            rt.RawGameType = CDomineeringBoard
+            rt.PositionType = CDomineeringPosition
 
 
 def print_available_moves(
@@ -178,6 +196,23 @@ def print_available_moves(
     print("Dostupne tahy:")
     print(f"  Left  - vertikalni domino:   {left_moves}")
     print(f"  Right - horizontalni domino: {right_moves}")
+
+
+def print_winner(game: Game) -> None:
+    zero = Game.zero()
+
+    game_geq_zero = game >= zero
+    zero_geq_game = zero >= game
+
+    print("\nVyhraje:")
+    if game_geq_zero and zero_geq_game:
+        print("druhý hráč G = 0")
+    elif game_geq_zero and not zero_geq_game:
+        print("levý hráč (vertikalní domino) G > 0")
+    elif not game_geq_zero and zero_geq_game:
+        print("pravý hráč (horizontalní domino) G < 0")
+    else:
+        print("první hráč G || 0")
 
 
 def main() -> None:
@@ -217,9 +252,10 @@ def main() -> None:
     print("Hraci pole po odstraneni bunek:")
     print_board(board.width, board.height, removed_mask)
 
-    solver = DomineeringSolver(lib_path)
-    solver.memory_multiplier = 0.9
-    solver.initialize()
+    solver = DomineeringSolver(
+        lib_path=lib_path,
+        memory_multiplier=0.9,
+    )
 
     try:
         print()
@@ -231,22 +267,12 @@ def main() -> None:
 
         print()
         print("Vysledek:")
-        print(solver.get_game_value_string(game, 1))
+        print(game.formatted)
 
-        game_geq_zero = solver.game_geq(game, solver.game_zero())
-        zero_geq_game = solver.game_geq(solver.game_zero(), game)
-        print("\nVyhraje: ")
-        if game_geq_zero and zero_geq_game:
-            print("druhý hráč G = 0")
-        if game_geq_zero and not zero_geq_game:
-            print("levý hráč (vertikalní domino) G > 0")
-        if not game_geq_zero and zero_geq_game:
-            print("pravý hráč (horizontalní domino) G < 0")
-        if not game_geq_zero and not zero_geq_game:
-            print("první hráč G || 0")
+        print_winner(game)
 
     finally:
-        solver.free_all()
+        solver.free()
 
 
 if __name__ == "__main__":

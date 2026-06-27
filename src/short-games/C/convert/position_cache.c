@@ -4,12 +4,16 @@
 #include <stdint.h>
 #include <assert.h>
 
-#include "shared/error.h"
-#include "config.h"
+#include "../shared/error.h"
+#include "../config.h"
+
+// TODO
+#include "../core/singletons.h"
+#include "../core/short_game.h"
+//
 
 #include "position_cache.h"
-#include "singletons.h"
-#include "shared/raw_game.h"
+#include "convert_interface/raw_game.h"
 
 static size_t pos_memo_size = 0;
 static size_t pos_memo_mask = 0;

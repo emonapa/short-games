@@ -12,10 +12,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "shared/error.h"
+#include "../shared/error.h"
+#include "../config.h"
 
 #include "game_canon_cache.h"
-#include "config.h"
+#include "short_game.h"
 
 // CANON cache
 static size_t canon_memo_size = 0;

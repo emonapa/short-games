@@ -28,6 +28,7 @@ if str(HOTPOTCH_DIR) not in sys.path:
     sys.path.insert(0, str(HOTPOTCH_DIR))
 
 import hb_solver
+from hb_solver import HBSolver
 import hb_io
 import hb_education
 import hb_settings
@@ -35,6 +36,8 @@ import hb_calculator
 import hb_graphics
 import hb_solver_worker
 from hb_theme import THEME
+
+from game import GameConvert
 
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
@@ -49,10 +52,10 @@ class MainWindow(QMainWindow):
             self.solver = None
             print(f"Warning: C-Solver not found, UI now running without math: {e}")
 
-        self.solver.memory_multiplier = self._cfg.get("performance", 0.5)
-        if self.solver.memory_multiplier > 0.9 or self.solver.memory_multiplier < 0.1:
-            self.solver.memory_multiplier = 0.5
-        self.solver.initialize()
+        #self.solver = HBSolver(
+        #    memory_multiplier=self._cfg.get("performance", 0.5),
+        #)
+        self.solver = HBSolver()
 
         self.scene = hb_graphics.GraphScene(self.solver, THEME.theme)
         self.scene.on_turn_changed = self._update_player_button
@@ -242,7 +245,7 @@ class MainWindow(QMainWindow):
         memory_multiplier = self._cfg.get("performance", 0.5)
         if memory_multiplier != self.solver.memory_multiplier:
             self.solver.memory_multiplier = memory_multiplier
-            self.solver.free_all()
+            self.solver.free()
             self.solver.initialize()
 
         self.stack.setCurrentIndex(0)
@@ -265,7 +268,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self.solver:
-            self.solver.free_all()
+            self.solver.free()
             #print("C-Solver memory now freed")
         event.accept()
 
@@ -317,9 +320,7 @@ class MainWindow(QMainWindow):
         self._dot_timer.stop()
         self.result_lbl.setText(result)
         if self._solver_worker and self._solver_worker.result_ptr:
-            self._last_game_string = self.solver.get_game_value_string(
-                self._solver_worker.result_ptr, 1
-            )
+            self._last_game_string = self._solver_worker.result_ptr.formatted
         self._solver_worker = None
         self.edu_manager.update_overlay()
 
@@ -534,7 +535,7 @@ class MainWindow(QMainWindow):
         self.view.setFocus()
 
     def restart_cache(self):
-        self.solver.free_all()
+        self.solver.free()
         self.solver.initialize()
 
     def copy_game_result(self):

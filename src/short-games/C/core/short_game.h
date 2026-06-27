@@ -11,7 +11,6 @@
 #define SHORT_GAME_H
 
 #include <stdlib.h>
-#include "shared/raw_game.h"
 
 extern int cannon_count;
 extern int eq_count;
@@ -39,14 +38,10 @@ int game_eq(Game *G, Game *H);  // Returns 1 if G == H
 
 // Converts a game to canonical form by removing dominated and reversible options.
 Game* game_canonicalize(Game *G);
+Game* game_canonicalize_shallow(Game *G);
 
 // Computes the mathematical sum of games G and H and returns the result in canonical form.
 Game* game_add(Game *G, Game *H);
 
-// Solves a single connected component of the raw Hotpotch position.
-Game* solve_component(RawGame_t raw_game, Position_t position);
-
-// Splits the position into independent components and sums their game values.
-Game* solve(RawGame_t raw_game, Position_t position);
 
 #endif // SHORT_GAME_H

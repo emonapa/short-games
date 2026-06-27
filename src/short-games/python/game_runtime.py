@@ -157,7 +157,11 @@ class GameRuntime:
     operate on Game* and Game** dynamic arrays.
     """
 
-    def __init__(self, lib_path: str | None = None):
+    def __init__(
+        self,
+        lib_path: str | None = None,
+        memory_multiplier: float = 0.01,
+    ):
         if lib_path is None:
             self.lib_path = get_default_lib_path()
         else:
@@ -167,9 +171,11 @@ class GameRuntime:
             raise FileNotFoundError(f"Library not found: {self.lib_path}")
 
         self.lib = ctypes.CDLL(self.lib_path)
-        self.memory_multiplier = 0.5
+        self.memory_multiplier = self._sanitize_memory_multiplier(memory_multiplier)
+        self._initialized = False
 
         self._bind_game_api()
+        GameRuntime.initialize(self)
 
     def _bind_game_api(self) -> None:
         self.lib.short_game_init.argtypes = [c_float]
@@ -275,11 +281,31 @@ class GameRuntime:
         self.lib.game_remove_unordered.argtypes = [GamePtrArrayPtrPtr, c_size_t]
         self.lib.game_remove_unordered.restype = None
 
-    def initialize(self) -> None:
-        self.lib.short_game_init(c_float(self.memory_multiplier))
+    @staticmethod
+    def _sanitize_memory_multiplier(memory_multiplier: float) -> float:
+        try:
+            memory_multiplier = float(memory_multiplier)
+        except (TypeError, ValueError):
+            return 0.5
 
-    def free_all(self) -> None:
+        if memory_multiplier > 0.9 or memory_multiplier < 0.1:
+            return 0.5
+
+        return memory_multiplier
+
+    def initialize(self) -> None:
+        if self._initialized:
+            return
+
+        self.lib.short_game_init(c_float(self.memory_multiplier))
+        self._initialized = True
+
+    def free(self) -> None:
+        if not self._initialized:
+            return
+
         self.lib.short_game_free()
+        self._initialized = False
 
     def game_new(self) -> GamePtr:
         return self.lib.game_new()
@@ -434,7 +460,7 @@ class GameRuntime:
         return games
 
 
-class GameSolver(GameRuntime):
+class GameConvertRuntime(GameRuntime):
     """
     Runtime for a concrete raw game implementation.
 
@@ -445,9 +471,20 @@ class GameSolver(GameRuntime):
     RawGameType = None
     PositionType = None
 
-    def __init__(self, lib_path: str | None = None):
-        super().__init__(lib_path)
+    def __init__(
+        self,
+        lib_path: str | None = None,
+        memory_multiplier: float = 0.01,
+    ):
+        super().__init__(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+        )
+
+        self._convert_initialized = False
+
         self._bind_raw_game_api()
+        self.initialize()
 
     def _bind_raw_game_api(self) -> None:
         self.lib.solve.argtypes = [c_void_p, c_void_p]
@@ -455,6 +492,12 @@ class GameSolver(GameRuntime):
 
         self.lib.solve_component.argtypes = [c_void_p, c_void_p]
         self.lib.solve_component.restype = GamePtr
+
+        self.lib.convert_init.argtypes = [c_float]
+        self.lib.convert_init.restype = None
+
+        self.lib.convert_free.argtypes = []
+        self.lib.convert_free.restype = None
 
         self.lib.num_moves.argtypes = [c_void_p]
         self.lib.num_moves.restype = c_int
@@ -507,6 +550,20 @@ class GameSolver(GameRuntime):
             self.raw_game_ptr(raw_game),
             self.position_ptr(position),
         )
+
+    def initialize(self) -> None:
+        if not self._convert_initialized:
+            self.lib.convert_init(c_float(self.memory_multiplier))
+            self._convert_initialized = True
+
+        GameRuntime.initialize(self)
+
+    def free(self) -> None:
+        if self._convert_initialized:
+            self.lib.convert_free()
+            self._convert_initialized = False
+
+        GameRuntime.free(self)
 
     def num_moves(self, raw_game) -> int:
         return int(self.lib.num_moves(self.raw_game_ptr(raw_game)))

@@ -155,7 +155,7 @@ class GraphScene(QGraphicsScene):
         # Clear solver cache based on config
         cfg = hb_settings.load_config()
         if not cfg.get("dont_clear_cache_between_games", False) and self.solver:
-            self.solver.free_all()
+            self.solver.free()
             self.solver.initialize()
 
         self.clear()

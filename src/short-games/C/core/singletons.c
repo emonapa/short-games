@@ -12,14 +12,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "shared/error.h"
-
-#include "game_darray.h"
-
-#include "game_intern_cache.h"
+#include "../shared/error.h"
 
 #include "singletons.h"
 #include "short_game.h"
+#include "game_intern_cache.h"
+#include "game_darray.h"
 
 static Game *val_zero = NULL;
 static Game *val_star = NULL;

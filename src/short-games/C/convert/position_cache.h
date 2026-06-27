@@ -2,7 +2,7 @@
 #define POSITION_CACHE_H
 #include <stdint.h>
 
-#include "short_game.h"
+#include "../core/short_game.h"
 
 typedef struct {
     uint8_t  used;

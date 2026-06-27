@@ -4,7 +4,7 @@ hb_calculator.py - CGT calculator panel.
 This file uses only the high-level Game API.
 
 The parser returns Game objects. It never touches GamePtr, GamePtrArrayPtr,
-GameRuntime or GameSolver directly.
+GameRuntime or GameConvert directly.
 """
 
 from __future__ import annotations
@@ -130,7 +130,7 @@ class GameParser:
             lefts = self._parse_list(left_str)
             rights = self._parse_list(right_str)
 
-            return Game.from_games(lefts, rights)
+            return Game.new(lefts, rights)
 
         if s == "*":
             return Game.star()
@@ -444,7 +444,7 @@ class CalculatorPanel(QWidget):
                 self.bin_result.setText("True" if a == b else "False")
 
             elif op == "||":
-                self.bin_result.setText("True" if a.fuzzy(b) else "False")
+                self.bin_result.setText("True" if a.confused(b) else "False")
 
             else:
                 raise ValueError(f"Unknown operator: {op}")

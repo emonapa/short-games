@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, QPointF, QTimer, QRectF, QSize, QThread, Signal a
 
 import time
 
+from game import Game
 import hb_solver
 
 class SolverWorker(QThread):
@@ -20,12 +21,13 @@ class SolverWorker(QThread):
             val = self.solver.solve(self.g, self.live_mask)
             elapsed = time.perf_counter() - start_time
 
-            if not val:
+            if val is None:
                 self.result_ready.emit("Value: Null pointer returned")
                 return
-            zero_game = self.solver.game_zero()
-            g_geq_0 = self.solver.game_geq(val, zero_game)
-            zero_geq_g = self.solver.game_geq(zero_game, val)
+
+            zero_game = Game.zero()
+            g_geq_0 = val >= zero_game
+            zero_geq_g = zero_game >= val
             if g_geq_0 and not zero_geq_g:
                 res_str = " Modrý/Left (G > 0)"
             elif not g_geq_0 and zero_geq_g:

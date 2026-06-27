@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include "shared/error.h"
+#include "../shared/error.h"
+#include "../config.h"
 
 #include "game_operations_cache.h"
-#include "config.h"
 
 // GEQ cache
 static size_t geq_memo_size = 0;

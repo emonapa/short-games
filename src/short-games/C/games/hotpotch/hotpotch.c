@@ -10,8 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "error.h"
-#include "darray.h"
+#include "../../shared/error.h"
+#include "../../shared/darray.h"
 
 #include "hotpotch.h"
 #include "raw_game.h"

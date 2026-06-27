@@ -1,4 +1,3 @@
-import os
 import ctypes
 
 from ctypes import (
@@ -9,7 +8,7 @@ from ctypes import (
     c_uint64,
 )
 
-from game_solver import GameSolver, void_ptr_to
+from game import GameConvert
 
 
 DEFAULT_HB_LIB_PATH = "../../../build/short-games/hotpotch/libhotpotch.so"
@@ -79,22 +78,47 @@ def full_live_mask(num_edges: int) -> int:
     return (1 << num_edges) - 1 if num_edges else 0
 
 
-class HBSolver(GameSolver):
+class HBSolver(GameConvert):
     RawGameType = CBaseGraph
     PositionType = CPosition
 
-    def __init__(self, lib_path: str = DEFAULT_HB_LIB_PATH):
-        super().__init__(lib_path) # nebo předáno explicitně
+    def __init__(
+        self,
+        lib_path: str = DEFAULT_HB_LIB_PATH,
+        memory_multiplier: float = 0.01,
+        use_c: bool = True,
+        **python_backend,
+    ):
+        super().__init__(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+            use_c=use_c,
+            **python_backend,
+        )
 
-        self.lib.cleanup_position.argtypes = [POINTER(CBaseGraph), CUInt128]
-        self.lib.cleanup_position.restype = CUInt128
+        if self._use_c:
+            rt = self._rt()
+            rt.RawGameType = CBaseGraph
+            rt.PositionType = CPosition
+
+            rt.lib.cleanup_position.argtypes = [POINTER(CBaseGraph), CUInt128]
+            rt.lib.cleanup_position.restype = CUInt128
 
     def solve(self, graph: CBaseGraph, live_mask: int):
         position = make_position(live_mask)
-        return self.lib.solve(void_ptr_to(graph), void_ptr_to(position))
+        return super().solve(graph, position)
+
+    def solve_component(self, graph: CBaseGraph, live_mask: int):
+        position = make_position(live_mask)
+        return super().solve_component(graph, position)
 
     def cleanup_position(self, graph: CBaseGraph, live_mask: int) -> int:
-        result = self.lib.cleanup_position(
+        if not self._use_c:
+            raise NotImplementedError("cleanup_position is not implemented for Python backend")
+
+        rt = self._rt()
+
+        result = rt.lib.cleanup_position(
             ctypes.byref(graph),
             int_to_uint128(live_mask),
         )

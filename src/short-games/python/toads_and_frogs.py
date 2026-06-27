@@ -1,11 +1,13 @@
 import sys
+
 from ctypes import (
     Structure,
     c_uint8,
     c_uint64,
 )
 
-from game_solver import GameSolver
+from game import Game, GameConvert
+
 
 DEFAULT_LIB_PATH = "../../../build/short-games/toads_and_frogs/libtoads_and_frogs.so"
 
@@ -104,12 +106,28 @@ def print_board(length: int, toads_mask: int = 0, frogs_mask: int = 0) -> None:
     print("Pole:  " + " ".join(cell_line))
 
 
-class ToadsAndFrogsSolver(GameSolver):
-    GameType = CToadsAndFrogsBoard
+class ToadsAndFrogsSolver(GameConvert):
+    RawGameType = CToadsAndFrogsBoard
     PositionType = CToadsAndFrogsPosition
 
-    def __init__(self, lib_path: str = DEFAULT_LIB_PATH):
-        super().__init__(lib_path)
+    def __init__(
+        self,
+        lib_path: str = DEFAULT_LIB_PATH,
+        memory_multiplier: float = 0.01,
+        use_c: bool = True,
+        **python_backend,
+    ):
+        super().__init__(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+            use_c=use_c,
+            **python_backend,
+        )
+
+        if self._use_c:
+            rt = self._rt()
+            rt.RawGameType = CToadsAndFrogsBoard
+            rt.PositionType = CToadsAndFrogsPosition
 
 
 def print_available_moves(
@@ -132,6 +150,23 @@ def print_available_moves(
     print("Dostupne tahy:")
     print(f"  Left  - Toads doprava: {toad_moves}")
     print(f"  Right - Frogs doleva:  {frog_moves}")
+
+
+def print_winner(game: Game) -> None:
+    zero = Game.zero()
+
+    game_geq_zero = game >= zero
+    zero_geq_game = zero >= game
+
+    print("\nVyhraje:")
+    if game_geq_zero and zero_geq_game:
+        print("druhy hrac G = 0")
+    elif game_geq_zero and not zero_geq_game:
+        print("levy hrac - Toads G > 0")
+    elif not game_geq_zero and zero_geq_game:
+        print("pravy hrac - Frogs G < 0")
+    else:
+        print("prvni hrac G || 0")
 
 
 def main() -> None:
@@ -184,9 +219,10 @@ def main() -> None:
     print("Zadana pozice:")
     print_board(board.length, position.toads_mask, position.frogs_mask)
 
-    solver = ToadsAndFrogsSolver(lib_path)
-    solver.memory_multiplier = 0.9
-    solver.initialize()
+    solver = ToadsAndFrogsSolver(
+        lib_path=lib_path,
+        memory_multiplier=0.9,
+    )
 
     try:
         print()
@@ -198,23 +234,12 @@ def main() -> None:
 
         print()
         print("Vysledek:")
-        print(solver.get_game_value_string(game, 1))
+        print(game.formatted)
 
-        game_geq_zero = solver.game_geq(game, solver.game_zero())
-        zero_geq_game = solver.game_geq(solver.game_zero(), game)
-
-        print("\nVyhraje:")
-        if game_geq_zero and zero_geq_game:
-            print("druhy hrac G = 0")
-        if game_geq_zero and not zero_geq_game:
-            print("levy hrac - Toads G > 0")
-        if not game_geq_zero and zero_geq_game:
-            print("pravy hrac - Frogs G < 0")
-        if not game_geq_zero and not zero_geq_game:
-            print("prvni hrac G || 0")
+        print_winner(game)
 
     finally:
-        solver.free_all()
+        solver.free()
 
 
 if __name__ == "__main__":

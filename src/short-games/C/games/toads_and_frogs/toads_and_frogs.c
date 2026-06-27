@@ -1,8 +1,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "error.h"
-#include "darray.h"
+#include "../../shared/error.h"
+#include "../../shared/darray.h"
 
 #include "toads_and_frogs.h"
 #include "raw_game.h"

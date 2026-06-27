@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include "short_game.h"
 
-
 typedef struct {
     uint8_t used;
     Game *node;

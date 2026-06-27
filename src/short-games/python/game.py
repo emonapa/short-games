@@ -6,11 +6,17 @@ FORMAT_RAW = 0
 FORMAT_FORMATED = 1
 
 def _options_list(value) -> list:
+    if value is None:
+        return []
+
     if isinstance(value, GameSide):
         return value.to_list()
 
     if isinstance(value, G):
         return value.to_list()
+
+    if isinstance(value, Iterable) and not isinstance(value, (Game, str, bytes)):
+        return list(value)
 
     return [value]
 
@@ -128,10 +134,10 @@ class GameSide:
             yield self[i]
 
     def __or__(self, right) -> "Game":
-        return Game.from_games(self.to_list(), _options_list(right))
+        return Game.new(self.to_list(), _options_list(right))
 
     def __ror__(self, left) -> "Game":
-        return Game.from_games(_options_list(left), self.to_list())
+        return Game.new(_options_list(left), self.to_list())
 
 
 
@@ -143,10 +149,10 @@ class G:
         return self.items
 
     def __or__(self, right) -> "Game":
-        return Game.from_games(self.to_list(), _options_list(right))
+        return Game.new(self.to_list(), _options_list(right))
 
     def __ror__(self, left) -> "Game":
-        return Game.from_games(_options_list(left), self.to_list())
+        return Game.new(_options_list(left), self.to_list())
 
     def __iter__(self):
         return iter(self.items)
@@ -184,14 +190,7 @@ class Game:
         lib_path: str | None = None,
         memory_multiplier: float = 0.01,
     ) -> None:
-        """
-        Optional configuration before first use.
-
-        Example:
-            Game.configure(lib_path="...", memory_multiplier=0.7)
-        """
-
-        from game_solver import GameRuntime
+        from game_runtime import GameRuntime
 
         if cls._runtime is not None:
             try:
@@ -199,18 +198,17 @@ class Game:
             except Exception:
                 pass
 
-        runtime = GameRuntime(lib_path)
-        runtime.memory_multiplier = memory_multiplier
-        runtime.initialize()
-
-        cls._runtime = runtime
+        cls._runtime = GameRuntime(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+        )
 
     @classmethod
     def use_runtime(cls, runtime) -> None:
         """
         Optional advanced method.
 
-        Useful when you already created a GameRuntime or GameSolver and want
+        Useful when you already created a GameRuntime or GameConvert and want
         high-level Game to use that same loaded library.
         """
 
@@ -235,8 +233,34 @@ class Game:
         return cls(ptr)
 
     @classmethod
-    def new(cls) -> "Game":
-        return cls(cls._rt().game_new())
+    def new(cls, left=None, right=None) -> "Game":
+        rt = cls._rt()
+
+        if left is None and right is None:
+            return cls(rt.game_new())
+
+        left_items = [] if left is None else _options_list(left)
+        right_items = [] if right is None else _options_list(right)
+
+        if len(left_items) <= 1 and len(right_items) <= 1:
+            left_ptr = cls.ptr_of(left_items[0]) if left_items else None
+            right_ptr = cls.ptr_of(right_items[0]) if right_items else None
+            return cls(rt.game_from_game(left_ptr, right_ptr))
+
+        left_arr = rt.game_array_new()
+        right_arr = rt.game_array_new()
+
+        try:
+            for child in left_items:
+                left_arr = rt.game_push(left_arr, cls.ptr_of(child))
+
+            for child in right_items:
+                right_arr = rt.game_push(right_arr, cls.ptr_of(child))
+
+            return cls(rt.game_from_game_arrays(left_arr, right_arr))
+        finally:
+            rt.game_free_array(left_arr)
+            rt.game_free_array(right_arr)
 
     @classmethod
     def zero(cls) -> "Game":
@@ -281,54 +305,13 @@ class Game:
         return cls(cls._rt().make_int(n))
 
     @classmethod
-    def dyadic(cls, p: int, q: int | None = None) -> "Game":
-        if q is None:
-            q = 1
+    def dyadic(cls, p: int, q: int = 1) -> "Game":
         ptr = cls._rt().make_dyadic(p, q)
 
         if not ptr:
             raise ValueError("Denominator must be a positive power of 2")
 
         return cls(ptr)
-
-    @classmethod
-    def from_game(cls, left=None, right=None) -> "Game":
-        left_ptr = cls.ptr_of(left) if left is not None else None
-        right_ptr = cls.ptr_of(right) if right is not None else None
-
-        return cls(cls._rt().game_from_game(left_ptr, right_ptr))
-
-    @classmethod
-    def from_games(
-        cls,
-        left: Iterable | None = None,
-        right: Iterable | None = None,
-    ) -> "Game":
-        rt = cls._rt()
-
-        left_items = list(left or [])
-        right_items = list(right or [])
-
-        left_arr = rt.game_array_new()
-        right_arr = rt.game_array_new()
-
-        try:
-            if left_items:
-                left_arr = rt.game_reserve(left_arr, len(left_items))
-
-                for child in left_items:
-                    left_arr = rt.game_push(left_arr, cls.ptr_of(child))
-
-            if right_items:
-                right_arr = rt.game_reserve(right_arr, len(right_items))
-
-                for child in right_items:
-                    right_arr = rt.game_push(right_arr, cls.ptr_of(child))
-
-            return cls(rt.game_from_game_arrays(left_arr, right_arr))
-        finally:
-            rt.game_free_array(left_arr)
-            rt.game_free_array(right_arr)
 
     @property
     def left(self) -> GameSide:
@@ -450,7 +433,236 @@ class Game:
         return f"Game({self.formatted})"
 
     def __or__(self, right) -> "Game":
-        return Game.from_games([self], _options_list(right))
+        return Game.new([self], _options_list(right))
 
     def __ror__(self, left) -> "Game":
-        return Game.from_games(_options_list(left), [self])
+        return Game.new(_options_list(left), [self])
+
+
+
+class GameConvert:
+    """
+    High-level wrapper over GameConvertRuntime.
+
+    It hides GamePtr from the user.
+
+    It supports two modes:
+
+        1. C backend:
+            conv = GameConvert()
+            g = conv.solve(raw_game, position)
+
+        2. Pure Python backend:
+            conv = GameConvert.from_python(solve=my_solve)
+            g = conv.solve(raw_game, position)
+
+    Python callbacks may return either:
+        - Game
+        - raw GamePtr
+    """
+
+    _default_runtime = None
+
+    def __init__(
+        self,
+        runtime=None,
+        *,
+        lib_path: str | None = None,
+        memory_multiplier: float = 0.01,
+        use_c: bool = True,
+        solve: Callable | None = None,
+        solve_component: Callable | None = None,
+        num_moves: Callable | None = None,
+        can_left_move: Callable | None = None,
+        can_right_move: Callable | None = None,
+        do_move_left: Callable | None = None,
+        do_move_right: Callable | None = None,
+        hash_raw_game_position: Callable | None = None,
+    ):
+        self._solve_fn = solve
+        self._solve_component_fn = solve_component
+        self._num_moves_fn = num_moves
+        self._can_left_move_fn = can_left_move
+        self._can_right_move_fn = can_right_move
+        self._do_move_left_fn = do_move_left
+        self._do_move_right_fn = do_move_right
+        self._hash_raw_game_position_fn = hash_raw_game_position
+
+        self._use_c = use_c
+        self._runtime = runtime
+
+        if self._use_c and self._runtime is None:
+            self._runtime = self._make_runtime(
+                lib_path=lib_path,
+                memory_multiplier=memory_multiplier,
+            )
+
+        if self._runtime is not None:
+            Game.use_runtime(self._runtime)
+
+    @classmethod
+    def configure_runtime(
+        cls,
+        lib_path: str | None = None,
+        memory_multiplier: float = 0.01,
+    ) -> None:
+        if cls._default_runtime is not None:
+            try:
+                cls._default_runtime.free()
+            except Exception:
+                pass
+
+        cls._default_runtime = cls._make_runtime(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+        )
+
+        Game.use_runtime(cls._default_runtime)
+
+    @classmethod
+    def use_runtime(cls, runtime) -> None:
+        cls._default_runtime = runtime
+        Game.use_runtime(runtime)
+
+    @classmethod
+    def _make_runtime(
+        cls,
+        lib_path: str | None = None,
+        memory_multiplier: float = 0.01,
+    ):
+        from game_runtime import GameConvertRuntime
+
+        return GameConvertRuntime(
+            lib_path=lib_path,
+            memory_multiplier=memory_multiplier,
+        )
+
+    @classmethod
+    def runtime(cls):
+        if cls._default_runtime is None:
+            cls.configure_runtime()
+
+        return cls._default_runtime
+
+    @classmethod
+    def from_python(
+        cls,
+        *,
+        solve: Callable | None = None,
+        solve_component: Callable | None = None,
+        num_moves: Callable | None = None,
+        can_left_move: Callable | None = None,
+        can_right_move: Callable | None = None,
+        do_move_left: Callable | None = None,
+        do_move_right: Callable | None = None,
+        hash_raw_game_position: Callable | None = None,
+    ) -> "GameConvert":
+        return cls(
+            use_c=False,
+            solve=solve,
+            solve_component=solve_component,
+            num_moves=num_moves,
+            can_left_move=can_left_move,
+            can_right_move=can_right_move,
+            do_move_left=do_move_left,
+            do_move_right=do_move_right,
+            hash_raw_game_position=hash_raw_game_position,
+        )
+
+    @staticmethod
+    def _as_game(value) -> Game:
+        if isinstance(value, Game):
+            return value
+
+        return Game.wrap(value)
+
+    def _rt(self):
+        if self._runtime is not None:
+            return self._runtime
+
+        if not self._use_c:
+            raise RuntimeError("This GameConvert has no C runtime.")
+
+        self._runtime = self.runtime()
+        Game.use_runtime(self._runtime)
+        return self._runtime
+
+    def initialize(self) -> None:
+        if self._runtime is not None:
+            self._runtime.initialize()
+
+    def free(self) -> None:
+        if self._runtime is not None:
+            self._runtime.free()
+
+    def solve(self, raw_game, position) -> Game:
+        if self._solve_fn is not None:
+            return self._as_game(self._solve_fn(raw_game, position))
+
+        if not self._use_c:
+            raise NotImplementedError("solve is not implemented")
+
+        return self._as_game(self._rt().solve(raw_game, position))
+
+    def solve_component(self, raw_game, position) -> Game:
+        if self._solve_component_fn is not None:
+            return self._as_game(self._solve_component_fn(raw_game, position))
+
+        if not self._use_c:
+            raise NotImplementedError("solve_component is not implemented")
+
+        return self._as_game(self._rt().solve_component(raw_game, position))
+
+    def num_moves(self, raw_game) -> int:
+        if self._num_moves_fn is not None:
+            return int(self._num_moves_fn(raw_game))
+
+        if not self._use_c:
+            raise NotImplementedError("num_moves is not implemented")
+
+        return int(self._rt().num_moves(raw_game))
+
+    def can_left_move(self, raw_game, position, move: int) -> bool:
+        if self._can_left_move_fn is not None:
+            return bool(self._can_left_move_fn(raw_game, position, move))
+
+        if not self._use_c:
+            raise NotImplementedError("can_left_move is not implemented")
+
+        return bool(self._rt().can_left_move(raw_game, position, move))
+
+    def can_right_move(self, raw_game, position, move: int) -> bool:
+        if self._can_right_move_fn is not None:
+            return bool(self._can_right_move_fn(raw_game, position, move))
+
+        if not self._use_c:
+            raise NotImplementedError("can_right_move is not implemented")
+
+        return bool(self._rt().can_right_move(raw_game, position, move))
+
+    def do_move_left(self, raw_game, position, move: int):
+        if self._do_move_left_fn is not None:
+            return self._do_move_left_fn(raw_game, position, move)
+
+        if not self._use_c:
+            raise NotImplementedError("do_move_left is not implemented")
+
+        return self._rt().do_move_left(raw_game, position, move)
+
+    def do_move_right(self, raw_game, position, move: int):
+        if self._do_move_right_fn is not None:
+            return self._do_move_right_fn(raw_game, position, move)
+
+        if not self._use_c:
+            raise NotImplementedError("do_move_right is not implemented")
+
+        return self._rt().do_move_right(raw_game, position, move)
+
+    def hash_raw_game_position(self, raw_game, position, move: int) -> int:
+        if self._hash_raw_game_position_fn is not None:
+            return int(self._hash_raw_game_position_fn(raw_game, position, move))
+
+        if not self._use_c:
+            raise NotImplementedError("hash_raw_game_position is not implemented")
+
+        return int(self._rt().hash_raw_game_position(raw_game, position, move))
