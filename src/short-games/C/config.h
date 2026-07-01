@@ -14,7 +14,7 @@
 
 #define MAX_ITEMS(table_size) ((size_t)(0.85 * table_size))
 #define PROBE_LIMIT 128
-static_assert(PROBE_LIMIT > 0);
+static_assert(PROBE_LIMIT > 0, "Probe limit can't be nonpositive");
 
 #define PCT_GEQ    0.94
 #define PCT_ADD    0.005

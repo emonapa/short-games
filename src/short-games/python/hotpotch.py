@@ -27,14 +27,14 @@ HOTPOTCH_DIR = HERE / "hotpotch_utils"
 if str(HOTPOTCH_DIR) not in sys.path:
     sys.path.insert(0, str(HOTPOTCH_DIR))
 
-import hb_solver
-from hb_solver import HBSolver
+import hb_converter
+from hb_converter import HBConverter
 import hb_io
 import hb_education
 import hb_settings
 import hb_calculator
 import hb_graphics
-import hb_solver_worker
+import hb_converter_worker
 from hb_theme import THEME
 
 from game import GameConvert
@@ -47,17 +47,17 @@ class MainWindow(QMainWindow):
         self._cfg = hb_settings.load_config()
 
         try:
-            self.solver = hb_solver.HBSolver()
+            self.converter = hb_converter.HBConverter(use_c = True)
         except Exception as e:
-            self.solver = None
-            print(f"Warning: C-Solver not found, UI now running without math: {e}")
+            self.converter = None
+            print(f"Warning: C-Converter not found, UI now running without math: {e}")
 
-        #self.solver = HBSolver(
+        #self.converter = HBConverter(
         #    memory_multiplier=self._cfg.get("performance", 0.5),
         #)
-        self.solver = HBSolver()
+        #self.converter = HBConverter()
 
-        self.scene = hb_graphics.GraphScene(self.solver, THEME.theme)
+        self.scene = hb_graphics.GraphScene(self.converter, THEME.theme)
         self.scene.on_turn_changed = self._update_player_button
         self.scene.on_build_color_changed = self._update_color_button_ui
 
@@ -125,9 +125,9 @@ class MainWindow(QMainWindow):
         self.color_btn.clicked.connect(self.toggle_build_color)
         self._update_color_button_ui(self.scene.current_color)
 
-        self.solve_btn = QPushButton("Solve")
-        self.solve_btn.clicked.connect(self.solve_current)
-        self.solve_btn.setStyleSheet("""
+        self.convert_btn = QPushButton("Convert")
+        self.convert_btn.clicked.connect(self.convert_current)
+        self.convert_btn.setStyleSheet("""
             QPushButton { background-color: #408040; border: none; }
         """)
 
@@ -180,7 +180,7 @@ class MainWindow(QMainWindow):
         top.addWidget(self.player_btn)
         top.addWidget(self.edit_btn)
         top.addSpacing(20)
-        top.addWidget(self.solve_btn)
+        top.addWidget(self.convert_btn)
         top.addWidget(self.result_lbl, 1)
 
         # education
@@ -209,8 +209,8 @@ class MainWindow(QMainWindow):
         if self._cfg.get("start_with_edit", False):
             self.toggle_edit_mode()
 
-        # Solver pojede v jinem threadu
-        self._solver_worker = None
+        # Converter pojede v jinem threadu
+        self._converter_worker = None
 
         # Animace 3 tecek
         self._dot_timer = QTimer()
@@ -243,10 +243,10 @@ class MainWindow(QMainWindow):
 
         # update size of cache
         memory_multiplier = self._cfg.get("performance", 0.5)
-        if memory_multiplier != self.solver.memory_multiplier:
-            self.solver.memory_multiplier = memory_multiplier
-            self.solver.free()
-            self.solver.initialize()
+        if memory_multiplier != self.converter.memory_multiplier:
+            self.converter.memory_multiplier = memory_multiplier
+            self.converter.free()
+            self.converter.initialize()
 
         self.stack.setCurrentIndex(0)
         self.view.setFocus()
@@ -267,46 +267,46 @@ class MainWindow(QMainWindow):
         self.edit_btn.setStyleSheet(theme.edit_btn_style(self.scene.edit_mode))
 
     def closeEvent(self, event):
-        if self.solver:
-            self.solver.free()
-            #print("C-Solver memory now freed")
+        if self.converter:
+            self.converter.free()
+            #print("C-Converter memory now freed")
         event.accept()
 
     def _update_player_button(self) -> None:
         if self.scene.edit_mode:
             return
-        team = "blue" if self.scene.player_to_move == hb_solver.EDGE_BLUE else "red"
+        team = "blue" if self.scene.player_to_move == hb_converter.EDGE_BLUE else "red"
         self.player_btn.setStyleSheet(THEME.theme.player_btn_style(team))
 
     def _manual_turn_toggle(self) -> None:
         if not self.scene.edit_mode:
-            self.scene.player_to_move = hb_solver.EDGE_RED if self.scene.player_to_move == hb_solver.EDGE_BLUE else hb_solver.EDGE_BLUE
+            self.scene.player_to_move = hb_converter.EDGE_RED if self.scene.player_to_move == hb_converter.EDGE_BLUE else hb_converter.EDGE_BLUE
             self._update_player_button()
         self.scene.update_auras()
 
-    def solve_current(self) -> None:
-        if not self.solver:
-            self.result_lbl.setText("Error: Solver not loaded.")
+    def convert_current(self) -> None:
+        if not self.converter:
+            self.result_lbl.setText("Error: Converter not loaded.")
             return
 
-        if self._solver_worker and self._solver_worker.isRunning():
+        if self._converter_worker and self._converter_worker.isRunning():
             return
 
         live_mask = self.scene.compute_live_mask_all_edges()
 
         self._dot_count = 0
         self._dot_timer.start()
-        self.result_lbl.setText("Solving.")
+        self.result_lbl.setText("Converting.")
 
-        self._solver_worker = hb_solver_worker.SolverWorker(self.solver, self.scene.g, live_mask)
-        self._solver_worker.result_ready.connect(self._on_solve_done)
-        self._solver_worker.finished.connect(self._on_worker_finished)
-        self._solver_worker.start()
+        self._converter_worker = hb_converter_worker.ConverterWorker(self.converter, self.scene.g, live_mask)
+        self._converter_worker.result_ready.connect(self._on_convert_done)
+        self._converter_worker.finished.connect(self._on_worker_finished)
+        self._converter_worker.start()
 
     def _on_worker_finished(self) -> None:
-        if self._solver_worker:
-            self._solver_worker.deleteLater()
-            self._solver_worker = None
+        if self._converter_worker:
+            self._converter_worker.deleteLater()
+            self._converter_worker = None
 
     # wrapper around clear_graph to put into history
     def clear_scene(self) -> None:
@@ -316,12 +316,12 @@ class MainWindow(QMainWindow):
         self.scene.clear_graph()
 
 
-    def _on_solve_done(self, result: str) -> None:
+    def _on_convert_done(self, result: str) -> None:
         self._dot_timer.stop()
         self.result_lbl.setText(result)
-        if self._solver_worker and self._solver_worker.result_ptr:
-            self._last_game_string = self._solver_worker.result_ptr.formatted
-        self._solver_worker = None
+        if self._converter_worker and self._converter_worker.result_ptr:
+            self._last_game_string = self._converter_worker.result_ptr.formatted
+        self._converter_worker = None
         self.edu_manager.update_overlay()
 
     def save_game(self) -> None:
@@ -355,11 +355,11 @@ class MainWindow(QMainWindow):
         self.scene.update_auras()
 
     def _update_color_button_ui(self, color: int) -> None:
-        team = {hb_solver.EDGE_BLUE: "blue", hb_solver.EDGE_RED: "red", hb_solver.EDGE_GREEN: "green"}[color]
+        team = {hb_converter.EDGE_BLUE: "blue", hb_converter.EDGE_RED: "red", hb_converter.EDGE_GREEN: "green"}[color]
         self.color_btn.setStyleSheet(THEME.theme.player_btn_style(team))
 
     def toggle_build_color(self) -> None:
-        colors = [hb_solver.EDGE_BLUE, hb_solver.EDGE_RED, hb_solver.EDGE_GREEN]
+        colors = [hb_converter.EDGE_BLUE, hb_converter.EDGE_RED, hb_converter.EDGE_GREEN]
         current_idx = colors.index(self.scene.current_color)
         new_color = colors[(current_idx + 1) % 3]
         self.scene.set_current_color(new_color)
@@ -380,7 +380,7 @@ class MainWindow(QMainWindow):
 
     def _tick_dots(self):
         self._dot_count = (self._dot_count % 3) + 1
-        self.result_lbl.setText("Solving" + "." * self._dot_count)
+        self.result_lbl.setText("Converting" + "." * self._dot_count)
 
     def _show_menu(self):
         menu = QMenu(self)
@@ -455,19 +455,19 @@ class MainWindow(QMainWindow):
     def negate_graph(self):
         for i in range(self.scene.g.num_edges):
             c = self.scene.g.edges[i].color
-            if c == hb_solver.EDGE_BLUE:
-                self.scene.g.edges[i].color = hb_solver.EDGE_RED
-            elif c == hb_solver.EDGE_RED:
-                self.scene.g.edges[i].color = hb_solver.EDGE_BLUE
+            if c == hb_converter.EDGE_BLUE:
+                self.scene.g.edges[i].color = hb_converter.EDGE_RED
+            elif c == hb_converter.EDGE_RED:
+                self.scene.g.edges[i].color = hb_converter.EDGE_BLUE
         t = self.scene.theme
         for e in self.scene.edge_items:
-            if e.color == hb_solver.EDGE_BLUE:
-                e.color = hb_solver.EDGE_RED
-                e.item.edge_color = hb_solver.EDGE_RED
+            if e.color == hb_converter.EDGE_BLUE:
+                e.color = hb_converter.EDGE_RED
+                e.item.edge_color = hb_converter.EDGE_RED
                 pen = QPen(t.red_q(), t.edge_width)
-            elif e.color == hb_solver.EDGE_RED:
-                e.color = hb_solver.EDGE_BLUE
-                e.item.edge_color = hb_solver.EDGE_BLUE
+            elif e.color == hb_converter.EDGE_RED:
+                e.color = hb_converter.EDGE_BLUE
+                e.item.edge_color = hb_converter.EDGE_BLUE
                 pen = QPen(t.blue_q(), t.edge_width)
             else:
                 continue
@@ -501,7 +501,7 @@ class MainWindow(QMainWindow):
 
             <h3>Top buttons</h3>
             <p>
-            <b>Solve</b> - computes the current game value<br>
+            <b>Convert</b> - computes the current game value<br>
             <b>Save</b> - saves the current graph<br>
             <b>Load</b> - loads a graph from file<br>
             <b>Trash</b> - clears the scene<br>
@@ -511,7 +511,7 @@ class MainWindow(QMainWindow):
             <h3>Menu</h3>
             <p>
             <b>Swap colors (-G)</b> - swaps blue and red edges<br>
-            <b>Clear cache</b> - clears solver cache<br>
+            <b>Clear cache</b> - clears converter cache<br>
             <b>Copy game result</b> - copies the last computed value<br>
             <b>Analyse position</b> - toggles educational analysis<br>
             <b>Show hints</b> - shows suggested moves<br>
@@ -535,11 +535,11 @@ class MainWindow(QMainWindow):
         self.view.setFocus()
 
     def restart_cache(self):
-        self.solver.free()
-        self.solver.initialize()
+        self.converter.free()
+        self.converter.initialize()
 
     def copy_game_result(self):
-        if not self.solver:
+        if not self.converter:
             return
         QApplication.clipboard().setText(self._last_game_string)
 

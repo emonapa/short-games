@@ -51,5 +51,4 @@ void build_adjacency(const BaseGraph *g, edge_mask_t live_mask, uint8_t *deg, ui
 
 edge_mask_t cleanup_position(const BaseGraph *g, edge_mask_t live_mask);
 
-
 #endif // HOTPOTCH_H

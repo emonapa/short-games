@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hotpotch Builder & Player</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="toolbar">
+        <button id="btn-clear" title="Clear scene">🗑️</button>
+        <div class="divider"></div>
+        
+        <span class="label">Playing:</span>
+        <button id="btn-player" class="color-btn blue" title="Switch player"></button>
+        <button id="btn-edit" class="tool-btn" title="Edit mode">✏️</button>
+        
+        <div class="divider"></div>
+        <button id="btn-undo" class="tool-btn" title="Undo">↩️</button>
+        <button id="btn-redo" class="tool-btn" title="Redo">↪️</button>
+
+        <div class="divider"></div>
+        <button id="btn-convert" class="action-btn">Convert</button>
+        <span id="lbl-result" class="result-label">Wins: ?</span>
+
+        <div class="spacer"></div>
+        
+        <span class="label">Building:</span>
+        <button id="btn-build-color" class="color-btn blue" title="Switch edge color"></button>
+    </div>
+
+    <!-- SVG plátno, které nahrazuje QGraphicsView -->
+    <div class="canvas-container" id="canvas-container">
+        <svg id="game-svg" width="100%" height="100%"></svg>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>

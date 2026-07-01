@@ -1,7 +1,7 @@
 CC = gcc
 
 CFLAGS = -Wall -Wextra -std=c11 -Wno-unused -O3
-LDFLAGS = -lm -ldl -lrt -lX11 -O3
+LDFLAGS = -O3
 
 SRC_DIR = src
 BUILD_DIR = build

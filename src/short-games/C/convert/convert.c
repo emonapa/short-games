@@ -32,10 +32,10 @@ void convert_free(void) {
 }
 
 
-Game* solve_component(RawGame_t raw_game, Position_t position) {
+Game* convert_component(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
 
-    // Memoization for already solved raw positions.
+    // Memoization for already converted raw positions.
     Game *memo = NULL;
     if (position_cache_get(raw_game, position, &memo))
         return memo;
@@ -44,13 +44,13 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
     Game **right_opts = NULL;
 
     // Recursively evaluate all legal moves from this position.
-    for (int e = 0; e < num_moves(raw_game); ++e) {
+    for (int e = 0; e < num_moves(raw_game, position); ++e) {
         Game *child = NULL;
         if (can_left_move(raw_game, position, e)) {
             Position_t child_position = do_move_left(raw_game, position, e);
             if (child_position == NULL) error_exit(ERR_MALLOC, "");
 
-            child = solve_component(raw_game, child_position);
+            child = convert_component(raw_game, child_position);
             game_push(&left_opts, child);
             free(child_position);
         }
@@ -58,7 +58,7 @@ Game* solve_component(RawGame_t raw_game, Position_t position) {
             Position_t child_position = do_move_right(raw_game, position, e);
             if (child_position == NULL) error_exit(ERR_MALLOC, "");
 
-            child = solve_component(raw_game, child_position);
+            child = convert_component(raw_game, child_position);
             game_push(&right_opts, child);
             free(child_position);
         }
@@ -83,7 +83,7 @@ static void print_stats() {
 
 //#define PRINT_RESULT
 
-Game* solve(void *raw_game, void *position) {
+Game* convert(void *raw_game, void *position) {
     Position_t *sub_games = NULL;
     int count = get_independent_components(raw_game, position, &sub_games);
 
@@ -93,9 +93,9 @@ Game* solve(void *raw_game, void *position) {
 #ifdef PRINT_RESULT
     printf("======================END RESULT==========================\n");
 #endif
-    // Solve each independent component and add it to the accumulated game value.
+    // Convert each independent component and add it to the accumulated game value.
     for (int i = 0; i < count; i++) {
-        Game *sub_game = solve_component(raw_game, sub_games[i]);
+        Game *sub_game = convert_component(raw_game, sub_games[i]);
         total_sum = game_add(total_sum, sub_game);
 #ifdef PRINT_RESULT
        printf("-------------[%d] Průchod-------------\n", i);
@@ -103,8 +103,8 @@ Game* solve(void *raw_game, void *position) {
 #endif
        // Components are usually different, so the cache could be reset here,
        // but hints and educational mode would become extremely slow if this were enabled.
-       //solver_free();
-       //solver_initialize(g_memory_multiplier);
+       //convert_free();
+       //convert_init(g_memory_multiplier);
     }
 #ifdef PRINT_RESULT
     printf("=========================================================\n");

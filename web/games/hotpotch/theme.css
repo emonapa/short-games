@@ -1,0 +1,87 @@
+:root {
+    --bg-window: #252525;
+    --bg-canvas: #2f2f2f;
+    --text: #ffffff;
+    
+    --color-blue: #03698f;
+    --color-red: #860037;
+    --color-green: #00703c;
+    
+    --color-ground: #4d2b8c;
+    --color-ground-line: #29102d;
+    --color-vertex: #c8c8c8;
+    
+    --btn-bg: #444;
+    --btn-hover: #555;
+    --btn-active: #666;
+}
+
+body {
+    margin: 0; padding: 0;
+    font-family: sans-serif;
+    background-color: var(--bg-window);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: var(--bg-window);
+    border-bottom: 1px solid #333;
+    gap: 10px;
+}
+
+.divider { width: 1px; height: 24px; background: #555; margin: 0 5px; }
+.spacer { flex-grow: 1; }
+.label { font-weight: bold; font-size: 14px; }
+
+button {
+    cursor: pointer;
+    border: 1px solid #555;
+    border-radius: 5px;
+    background: var(--btn-bg);
+    color: white;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+}
+button:hover { background: var(--btn-hover); }
+button:active { background: var(--btn-active); }
+
+.tool-btn { width: 40px; height: 40px; }
+.action-btn { padding: 0 15px; height: 40px; background: #2d5a2d; }
+.action-btn:hover { background: #3a6f3a; }
+
+.color-btn { width: 40px; height: 40px; border-radius: 20px; border: 2px solid white; }
+.color-btn.blue { background-color: var(--color-blue); }
+.color-btn.red { background-color: var(--color-red); }
+.color-btn.green { background-color: var(--color-green); }
+.color-btn.edit-active { border: 2px solid #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+
+.result-label { margin-left: 10px; font-size: 16px; font-family: monospace; }
+
+.canvas-container {
+    flex-grow: 1;
+    background-color: var(--bg-canvas);
+    position: relative;
+}
+
+svg {
+    display: block;
+    user-select: none;
+}
+
+/* SVG Elements styles */
+.edge { stroke-width: 8; stroke-linecap: round; fill: none; cursor: pointer; transition: stroke-width 0.1s; }
+.edge:hover { stroke-width: 12; }
+.edge.blue { stroke: var(--color-blue); }
+.edge.red { stroke: var(--color-red); }
+.edge.green { stroke: var(--color-green); }
+
+.vertex { fill: var(--color-vertex); stroke: black; stroke-width: 2; cursor: pointer; }
+.vertex.ground { fill: var(--color-ground); }
+.vertex.pending { stroke: white; stroke-width: 3; stroke-dasharray: 4; }

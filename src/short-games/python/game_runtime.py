@@ -245,6 +245,12 @@ class GameRuntime:
         self.lib.game_get_string.argtypes = [c_void_p, c_int]
         self.lib.game_get_string.restype = c_char_p
 
+        self.lib.game_from_string.argtypes = [c_char_p]
+        self.lib.game_from_string.restype = GamePtr
+
+        self.lib.game_string_last_error.argtypes = []
+        self.lib.game_string_last_error.restype = c_char_p
+
         self.lib.game_len.argtypes = [GamePtrArrayPtrPtr]
         self.lib.game_len.restype = c_size_t
 
@@ -369,6 +375,19 @@ class GameRuntime:
         raw = self.lib.game_get_string(game, c_int(fmt))
         return raw.decode("utf-8")
 
+    def game_from_string(self, text: str) -> GamePtr:
+        if text is None:
+            raise ValueError("Input string is None")
+
+        ptr = self.lib.game_from_string(text.encode("utf-8"))
+
+        if not ptr:
+            raw_error = self.lib.game_string_last_error()
+            message = raw_error.decode("utf-8") if raw_error else "Invalid game string"
+            raise ValueError(message)
+
+        return ptr
+
     def game_from_game(self, left: GamePtr | None, right: GamePtr | None) -> GamePtr:
         return self.lib.game_from_game(left, right)
 
@@ -465,7 +484,7 @@ class GameConvertRuntime(GameRuntime):
     Runtime for a concrete raw game implementation.
 
     This extends GameRuntime with raw-game operations:
-    solve, solve_component, num_moves, can_left_move, ...
+    convert, convert_component, num_moves, can_left_move, ...
     """
 
     RawGameType = None
@@ -487,11 +506,11 @@ class GameConvertRuntime(GameRuntime):
         self.initialize()
 
     def _bind_raw_game_api(self) -> None:
-        self.lib.solve.argtypes = [c_void_p, c_void_p]
-        self.lib.solve.restype = GamePtr
+        self.lib.convert.argtypes = [c_void_p, c_void_p]
+        self.lib.convert.restype = GamePtr
 
-        self.lib.solve_component.argtypes = [c_void_p, c_void_p]
-        self.lib.solve_component.restype = GamePtr
+        self.lib.convert_component.argtypes = [c_void_p, c_void_p]
+        self.lib.convert_component.restype = GamePtr
 
         self.lib.convert_init.argtypes = [c_float]
         self.lib.convert_init.restype = None
@@ -499,7 +518,7 @@ class GameConvertRuntime(GameRuntime):
         self.lib.convert_free.argtypes = []
         self.lib.convert_free.restype = None
 
-        self.lib.num_moves.argtypes = [c_void_p]
+        self.lib.num_moves.argtypes = [c_void_p, c_void_p]
         self.lib.num_moves.restype = c_int
 
         self.lib.can_left_move.argtypes = [c_void_p, c_void_p, c_int]
@@ -539,14 +558,14 @@ class GameConvertRuntime(GameRuntime):
 
         return ctypes.cast(ptr, POINTER(self.PositionType)).contents
 
-    def solve(self, raw_game, position) -> GamePtr:
-        return self.lib.solve(
+    def convert(self, raw_game, position) -> GamePtr:
+        return self.lib.convert(
             self.raw_game_ptr(raw_game),
             self.position_ptr(position),
         )
 
-    def solve_component(self, raw_game, position) -> GamePtr:
-        return self.lib.solve_component(
+    def convert_component(self, raw_game, position) -> GamePtr:
+        return self.lib.convert_component(
             self.raw_game_ptr(raw_game),
             self.position_ptr(position),
         )
@@ -565,8 +584,9 @@ class GameConvertRuntime(GameRuntime):
 
         GameRuntime.free(self)
 
-    def num_moves(self, raw_game) -> int:
-        return int(self.lib.num_moves(self.raw_game_ptr(raw_game)))
+    def num_moves(self, raw_game, position = None) -> int:
+        return int(self.lib.num_moves(self.raw_game_ptr(raw_game),
+                                      self.position_ptr(position)))
 
     def can_left_move(self, raw_game, position, move: int) -> bool:
         return bool(

@@ -101,7 +101,7 @@ edge_mask_t cleanup_position(const BaseGraph *g, edge_mask_t live_mask) {
  * ------------------------------------------------------------------------
  */
 
-int num_moves(RawGame_t raw_game) {
+int num_moves(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL) error_exit(ERR_NULL_POINTER, "");
 
     BaseGraph *g = (BaseGraph *)raw_game;

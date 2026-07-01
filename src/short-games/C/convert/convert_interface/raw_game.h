@@ -6,7 +6,7 @@
 typedef void *RawGame_t;
 typedef void *Position_t;
 
-int num_moves(RawGame_t raw_game);
+int num_moves(RawGame_t raw_game, Position_t position);
 
 Position_t do_move_left(RawGame_t raw_game, Position_t position, int e);
 Position_t do_move_right(RawGame_t raw_game, Position_t position, int e);

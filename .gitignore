@@ -1,6 +1,7 @@
 build/
 libs/
 venv/
+emsdk/
 __pycache__/
 dist/
 

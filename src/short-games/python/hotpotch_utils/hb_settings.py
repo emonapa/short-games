@@ -317,7 +317,7 @@ class SettingsPanel(QWidget):
         layout.addWidget(self.perf_slider)
 
         hint = QLabel(
-            "Controls how much RAM the solver may allocate for caches. "
+            "Controls how much RAM the converter may allocate for caches. "
             "Higher = faster on large positions."
         )
         hint.setObjectName("hint_lbl")

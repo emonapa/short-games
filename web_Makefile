@@ -1,0 +1,99 @@
+CC = emcc
+CFLAGS = -Wall -Wextra -std=c11 -Wno-unused -O3
+
+# Zajišťuje bezpečné vkládání čárek do seznamů v Makefilu
+comma := ,
+
+# 1. Sada exportů POUZE pro čisté jádro (core)
+EXPORTED_FUNCS_CORE = \
+  '_free', '_malloc', \
+  '_short_game_init', '_short_game_free', \
+  '_game_new', '_game_from_game', '_game_from_games', \
+  '_game_zero', '_game_star', '_game_up', '_game_down', \
+  '_game_geq', '_game_canonicalize', '_game_add', '_game_negate', \
+  '_cool_with_star', '_star_projection', \
+  '_make_int', '_make_dyadic', '_make_nimber', \
+  '_make_up_multiple', '_make_down_multiple', \
+  '_game_get_string', '_game_from_string', '_game_string_last_error', \
+  '_game_len', '_game_cap', '_game_free', '_game_reserve', '_game_push', \
+  '_game_append', '_game_append_many', '_game_resize', '_game_pop', \
+  '_game_first', '_game_last', '_game_remove_unordered'
+
+# 2. Sada exportů konvertoru (společná pro všechny kompilované C hry)
+EXPORTED_FUNCS_CONVERT = \
+  '_convert', '_convert_component', '_convert_init', '_convert_free', \
+  '_num_moves', '_can_left_move', '_can_right_move', \
+  '_do_move_left', '_do_move_right', '_hash_raw_game_position'
+
+# ----------------------------------------------------------------------
+# 3. ZDE PŘIDÁVEJ SPECIFICKÉ FUNKCE PRO JEDNOTLIVÉ HRY (VELKÝMI PÍSMENY)
+# ----------------------------------------------------------------------
+EXPORTED_FUNCS_HOTPOTCH = '_cleanup_position'
+EXPORTED_FUNCS_DOMINEERING = 
+EXPORTED_FUNCS_TOADS_AND_FROGS = 
+
+# ----------------------------------------------------------------------
+
+LDFLAGS_CORE = \
+  -s MODULARIZE=1 \
+  -s EXPORT_ES6=1 \
+  -s ALLOW_MEMORY_GROWTH=1 \
+  -s EXPORTED_FUNCTIONS="[$(EXPORTED_FUNCS_CORE)]" \
+  -s EXPORTED_RUNTIME_METHODS="['UTF8ToString', 'stringToNewUTF8', 'getValue', 'setValue']"
+
+SRC_DIR = src
+SHORTS_DIR = $(SRC_DIR)/short-games/C
+CORE_SRCS = $(wildcard $(SHORTS_DIR)/core/*.c)
+CONVERT_SRCS = $(wildcard $(SHORTS_DIR)/convert/*.c)
+GAMES_SRC_DIR = $(SHORTS_DIR)/games
+
+INCLUDES = -I$(SHORTS_DIR) -I$(SHORTS_DIR)/shared -I$(SHORTS_DIR)/convert/convert_interface -I$(GAMES_SRC_DIR)
+
+GAME_DIRS = $(wildcard $(GAMES_SRC_DIR)/*)
+GAME_NAMES = $(notdir $(GAME_DIRS))
+GAME_TARGETS = $(foreach game,$(GAME_NAMES),web/games/$(game)/lib$(game).js)
+CORE_TARGET = web/core/libshortcore.js
+
+.PHONY: all clean games core
+
+all: core games
+
+games: $(GAME_TARGETS)
+
+core: $(CORE_TARGET)
+
+# Makro pro převod názvu složky hry na VELKÁ PÍSMENA (hotpotch -> HOTPOTCH)
+TO_UPPER = $(shell echo $(1) | tr '[:lower:]' '[:upper:]')
+
+# Template pro kompilaci konkrétní hry
+define GAME_TEMPLATE
+# Vygenerování klíče velkými písmeny pro konkrétní hru
+UP_NAME_$(1) := $$(call TO_UPPER,$(1))
+
+# Makro magie: Poskládá string [CORE] + [CONVERT] a pokud je EXPORTED_FUNCS_<HRA> definována, přidá ", [HRA]"
+GAME_EXPORTS_$(1) = $(EXPORTED_FUNCS_CORE)$(comma) $(EXPORTED_FUNCS_CONVERT)$$(if $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))),$$(comma) $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))))
+
+web/games/$(1)/lib$(1).js: $(CORE_SRCS) $(CONVERT_SRCS) $$(wildcard $(GAMES_SRC_DIR)/$(1)/*.c)
+	@echo "Kompiluji hru: $(1)..."
+	@mkdir -p web/games/$(1)
+	$$(CC) $$(CFLAGS) $$(INCLUDES) $$^ -o $$@ \
+		-s MODULARIZE=1 \
+		-s EXPORT_ES6=1 \
+		-s ALLOW_MEMORY_GROWTH=1 \
+		-s EXPORTED_FUNCTIONS="[$$(GAME_EXPORTS_$(1))]" \
+		-s EXPORTED_RUNTIME_METHODS="['UTF8ToString', 'stringToNewUTF8', 'getValue', 'setValue']"
+endef
+
+# Aplikování šablony na všechny nalezené hry
+$(foreach game,$(GAME_NAMES),$(eval $(call GAME_TEMPLATE,$(game))))
+
+# Pravidlo pro čisté jádro (zůstává izolovano)
+$(CORE_TARGET): $(CORE_SRCS)
+	@echo "Kompiluji ciste jadro (core)..."
+	@mkdir -p web/core
+	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS_CORE)
+
+clean:
+	@echo "Mazu vygenerovane knihovny..."
+	rm -f web/core/libshortcore.js web/core/libshortcore.wasm
+	rm -f web/games/*/lib*.js web/games/*/lib*.wasm

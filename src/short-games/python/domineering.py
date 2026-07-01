@@ -152,7 +152,7 @@ def print_board(width: int, height: int, removed_mask: int = 0) -> None:
         print("".join(line).rstrip())
 
 
-class DomineeringSolver(GameConvert):
+class DomineeringConverter(GameConvert):
     RawGameType = CDomineeringBoard
     PositionType = CDomineeringPosition
 
@@ -160,37 +160,34 @@ class DomineeringSolver(GameConvert):
         self,
         lib_path: str = DEFAULT_LIB_PATH,
         memory_multiplier: float = 0.01,
-        use_c: bool = True,
-        **python_backend,
+        use_c = True,
     ):
         super().__init__(
             lib_path=lib_path,
             memory_multiplier=memory_multiplier,
-            use_c=use_c,
-            **python_backend,
+            use_c = True,
         )
 
-        if self._use_c:
-            rt = self._rt()
-            rt.RawGameType = CDomineeringBoard
-            rt.PositionType = CDomineeringPosition
+        rt = self._rt()
+        rt.RawGameType = CDomineeringBoard
+        rt.PositionType = CDomineeringPosition
 
 
 def print_available_moves(
-    solver: DomineeringSolver,
+    converter: DomineeringConverter,
     board: CDomineeringBoard,
     position: CDomineeringPosition,
 ) -> None:
-    moves = solver.num_moves(board)
+    moves = converter.num_moves(board)
 
     left_moves = []
     right_moves = []
 
     for move in range(moves):
-        if solver.can_left_move(board, position, move):
+        if converter.can_left_move(board, position, move):
             left_moves.append(move)
 
-        if solver.can_right_move(board, position, move):
+        if converter.can_right_move(board, position, move):
             right_moves.append(move)
 
     print("Dostupne tahy:")
@@ -252,18 +249,19 @@ def main() -> None:
     print("Hraci pole po odstraneni bunek:")
     print_board(board.width, board.height, removed_mask)
 
-    solver = DomineeringSolver(
+    converter = DomineeringConverter(
         lib_path=lib_path,
         memory_multiplier=0.9,
+        use_c = True,
     )
 
     try:
         print()
-        print_available_moves(solver, board, position)
+        print_available_moves(converter, board, position)
 
         print()
         print("Solvuju...")
-        game = solver.solve(board, position)
+        game = converter.convert(board, position)
 
         print()
         print("Vysledek:")
@@ -272,7 +270,7 @@ def main() -> None:
         print_winner(game)
 
     finally:
-        solver.free()
+        converter.free()
 
 
 if __name__ == "__main__":

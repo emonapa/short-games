@@ -57,7 +57,7 @@ DomineeringPosition domineering_make_position(uint64_t occupied_mask) {
     return pos;
 }
 
-int num_moves(RawGame_t raw_game) {
+int num_moves(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }
@@ -191,7 +191,7 @@ uint64_t hash_raw_game_position(RawGame_t raw_game, Position_t position, int e) 
 }
 
 static int has_any_move(RawGame_t raw_game, Position_t position) {
-    int moves = num_moves(raw_game);
+    int moves = num_moves(raw_game, position);
 
     for (int e = 0; e < moves; ++e) {
         if (can_left_move(raw_game, position, e)) {

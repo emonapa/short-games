@@ -31,7 +31,7 @@ static int is_empty(const ToadsAndFrogsPosition *pos, int cell) {
 }
 
 static int has_any_move(RawGame_t raw_game, Position_t position) {
-    int moves = num_moves(raw_game);
+    int moves = num_moves(raw_game, position);
 
     for (int e = 0; e < moves; ++e) {
         if (can_left_move(raw_game, position, e)) {
@@ -74,7 +74,7 @@ ToadsAndFrogsPosition toads_and_frogs_make_position(uint64_t toads_mask, uint64_
     return pos;
 }
 
-int num_moves(RawGame_t raw_game) {
+int num_moves(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL) {
         error_exit(ERR_NULL_POINTER, "");
     }

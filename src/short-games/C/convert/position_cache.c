@@ -1,16 +1,8 @@
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
 
 #include "../shared/error.h"
-#include "../config.h"
-
-// TODO
-#include "../core/singletons.h"
 #include "../core/short_game.h"
-//
+#include "../config.h"
 
 #include "position_cache.h"
 #include "convert_interface/raw_game.h"
@@ -21,11 +13,11 @@ size_t pos_items_count = 0;
 static size_t pos_max_items = 0;
 static HashEntry *position_cache = NULL;
 
-static uint64_t hash_graph_state(void *raw_game, void *position) {
+static uint64_t hash_graph_state(RawGame_t raw_game, Position_t position) {
     if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
     uint64_t total_hash = 0;
 
-    for (int e = 0; e < num_moves(raw_game); e++) {
+    for (int e = 0; e < num_moves(raw_game, position); e++) {
         if (can_left_move(raw_game, position, e) ||
             can_right_move(raw_game, position, e)) {
                 total_hash ^= hash_raw_game_position(raw_game, position, e);
@@ -52,7 +44,7 @@ void position_cache_free(void) {
     position_cache = NULL;
 }
 
-int position_cache_get(void *raw_game, void *position, Game **out_value) {
+int position_cache_get(RawGame_t raw_game, Position_t position, Game **out_value) {
     if (raw_game == NULL || position == NULL || out_value == NULL) error_exit(ERR_NULL_POINTER, "");
 
     uint64_t h = hash_graph_state(raw_game, position);
@@ -72,7 +64,7 @@ int position_cache_get(void *raw_game, void *position, Game **out_value) {
     return 0;
 }
 
-void position_cache_insert(void *raw_game, void *position, Game *value) {
+void position_cache_insert(RawGame_t raw_game, Position_t position, Game *value) {
     if (raw_game == NULL || position == NULL || value == NULL) error_exit(ERR_NULL_POINTER, "");
 
     static int already_reported = 0;

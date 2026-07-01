@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPen, QBrush, QColor, QPainterPath, QFont, QImage, QPainter
 from hb_education import EduBubble
 
-import hb_solver
+import hb_converter
 import hb_settings
 from hb_theme import THEME
 
@@ -40,9 +40,9 @@ class InteractiveEdgeItem(QGraphicsPathItem):
 
 
 class GraphScene(QGraphicsScene):
-    def __init__(self, solver: Optional[hb_solver.HBSolver], theme=None) -> None:
+    def __init__(self, converter: Optional[hb_converter.HBConverter], theme=None) -> None:
         super().__init__()
-        self.solver = solver
+        self.converter = converter
         self.theme = theme or THEME.theme
         self.setSceneRect(0, 0, theme.win_size_x, theme.win_size_y)
 
@@ -50,22 +50,22 @@ class GraphScene(QGraphicsScene):
         self.hit_radius = 12.0
         self.merge_radius = 22.0
 
-        self.g = hb_solver.CBaseGraph()
+        self.g = hb_converter.CBaseGraph()
         self.g.num_vertices = 0
         self.g.num_edges = 0
 
-        self.vertex_pos: List[QPointF] = [QPointF(0, 0) for _ in range(hb_solver.MAX_VERTICES)]
-        self.vertex_items: List[Optional[QGraphicsEllipseItem]] = [None for _ in range(hb_solver.MAX_VERTICES)]
-        self.is_ground: List[bool] = [False for _ in range(hb_solver.MAX_VERTICES)]
+        self.vertex_pos: List[QPointF] = [QPointF(0, 0) for _ in range(hb_converter.MAX_VERTICES)]
+        self.vertex_items: List[Optional[QGraphicsEllipseItem]] = [None for _ in range(hb_converter.MAX_VERTICES)]
+        self.is_ground: List[bool] = [False for _ in range(hb_converter.MAX_VERTICES)]
 
         self.edge_items: List['EdgeItem'] = []
         self.parallel_count = {}
 
-        self.current_color = hb_solver.EDGE_BLUE
+        self.current_color = hb_converter.EDGE_BLUE
         self.pending_u: Optional[int] = None
         self.pending_marker = None
 
-        self.player_to_move = hb_solver.EDGE_BLUE
+        self.player_to_move = hb_converter.EDGE_BLUE
         self.on_turn_changed = None
 
         self.is_slashing = False
@@ -126,9 +126,9 @@ class GraphScene(QGraphicsScene):
         self.theme = theme
         for e in self.edge_items:
             pen_color = {
-                hb_solver.EDGE_BLUE:  theme.blue_q(),
-                hb_solver.EDGE_RED:   theme.red_q(),
-                hb_solver.EDGE_GREEN: theme.green_q(),
+                hb_converter.EDGE_BLUE:  theme.blue_q(),
+                hb_converter.EDGE_RED:   theme.red_q(),
+                hb_converter.EDGE_GREEN: theme.green_q(),
             }[e.color]
             pen = QPen(pen_color, theme.edge_width)
             pen.setCapStyle(Qt.RoundCap)
@@ -152,20 +152,20 @@ class GraphScene(QGraphicsScene):
         if window and hasattr(window, 'edu_manager'):
             window.edu_manager.bubbles.clear()
 
-        # Clear solver cache based on config
+        # Clear converter cache based on config
         cfg = hb_settings.load_config()
-        if not cfg.get("dont_clear_cache_between_games", False) and self.solver:
-            self.solver.free()
-            self.solver.initialize()
+        if not cfg.get("dont_clear_cache_between_games", False) and self.converter:
+            self.converter.free()
+            self.converter.initialize()
 
         self.clear()
         self.g.num_vertices = 0
         self.g.num_edges = 0
         self.edge_items.clear()
         self.parallel_count.clear()
-        self.vertex_items = [None for _ in range(hb_solver.MAX_VERTICES)]
-        self.vertex_pos = [QPointF(0, 0) for _ in range(hb_solver.MAX_VERTICES)]
-        self.is_ground = [False for _ in range(hb_solver.MAX_VERTICES)]
+        self.vertex_items = [None for _ in range(hb_converter.MAX_VERTICES)]
+        self.vertex_pos = [QPointF(0, 0) for _ in range(hb_converter.MAX_VERTICES)]
+        self.is_ground = [False for _ in range(hb_converter.MAX_VERTICES)]
         self.pending_u = None
         self.pending_marker = None
         self.active_slashes.clear()
@@ -274,7 +274,7 @@ class GraphScene(QGraphicsScene):
             return
 
         direction = 1 if delta > 0 else -1
-        colors = [hb_solver.EDGE_BLUE, hb_solver.EDGE_RED, hb_solver.EDGE_GREEN]
+        colors = [hb_converter.EDGE_BLUE, hb_converter.EDGE_RED, hb_converter.EDGE_GREEN]
         current_idx = colors.index(self.current_color)
         new_idx = (current_idx + direction) % 3
         self.set_current_color(colors[new_idx])
@@ -287,15 +287,15 @@ class GraphScene(QGraphicsScene):
     def _is_valid_cut(self, color: int) -> bool:
         if self.edit_mode:
             return True
-        if self.player_to_move == hb_solver.EDGE_BLUE and color in (hb_solver.EDGE_BLUE, hb_solver.EDGE_GREEN):
+        if self.player_to_move == hb_converter.EDGE_BLUE and color in (hb_converter.EDGE_BLUE, hb_converter.EDGE_GREEN):
             return True
-        if self.player_to_move == hb_solver.EDGE_RED and color in (hb_solver.EDGE_RED, hb_solver.EDGE_GREEN):
+        if self.player_to_move == hb_converter.EDGE_RED and color in (hb_converter.EDGE_RED, hb_converter.EDGE_GREEN):
             return True
         return False
 
     def _execute_cut(self, cut_idx: int) -> None:
-        if not self.solver:
-            print("C-Solver not found, can't execute cut/cleanup")
+        if not self.converter:
+            print("C-Converter not found, can't execute cut/cleanup")
             return
 
         self.hide_hint()
@@ -305,7 +305,7 @@ class GraphScene(QGraphicsScene):
             window.history.save_state()
 
         temp_mask = ((1 << self.g.num_edges) - 1) & ~(1 << cut_idx)
-        new_mask = self.solver.cleanup_position(self.g, temp_mask)
+        new_mask = self.converter.cleanup_position(self.g, temp_mask)
 
         to_remove = []
         for i in range(self.g.num_edges):
@@ -339,17 +339,17 @@ class GraphScene(QGraphicsScene):
             used.add(e.u)
             used.add(e.v)
 
-        for i in range(hb_solver.MAX_VERTICES):
+        for i in range(hb_converter.MAX_VERTICES):
             if i not in used and self.vertex_items[i] is not None:
                 self.removeItem(self.vertex_items[i])
                 self.vertex_items[i] = None
                 self.is_ground[i] = False
 
         if not self.edit_mode:
-            if self.player_to_move == hb_solver.EDGE_BLUE:
-                self.player_to_move = hb_solver.EDGE_RED
+            if self.player_to_move == hb_converter.EDGE_BLUE:
+                self.player_to_move = hb_converter.EDGE_RED
             else:
-                self.player_to_move = hb_solver.EDGE_BLUE
+                self.player_to_move = hb_converter.EDGE_BLUE
 
         if self.on_turn_changed:
             self.on_turn_changed()
@@ -409,7 +409,7 @@ class GraphScene(QGraphicsScene):
             if (p.x() - pos.x())**2 + (p.y() - pos.y())**2 <= r2:
                 return i
 
-        if int(self.g.num_vertices) >= hb_solver.MAX_VERTICES:
+        if int(self.g.num_vertices) >= hb_converter.MAX_VERTICES:
             return None
 
         idx = int(self.g.num_vertices)
@@ -418,7 +418,7 @@ class GraphScene(QGraphicsScene):
         is_gnd = (pos.y() == self.ground_y)
         self.is_ground[idx] = is_gnd
 
-        self.g.num_vertices = hb_solver.c_uint8(idx + 1)
+        self.g.num_vertices = hb_converter.c_uint8(idx + 1)
         self._render_vertex(idx, is_ground=is_gnd)
         return idx
 
@@ -456,7 +456,7 @@ class GraphScene(QGraphicsScene):
             self.pending_marker.setRect(p.x() - r, p.y() - r, 2*r, 2*r)
 
     def _add_edge(self, u: int, v: int, color: int) -> bool:
-        if int(self.g.num_edges) >= hb_solver.MAX_EDGES:
+        if int(self.g.num_edges) >= hb_converter.MAX_EDGES:
             return False
 
         eidx = int(self.g.num_edges)
@@ -464,10 +464,10 @@ class GraphScene(QGraphicsScene):
         c_u = 0 if self.is_ground[u] else u
         c_v = 0 if self.is_ground[v] else v
 
-        self.g.edges[eidx].u = hb_solver.c_uint8(c_u)
-        self.g.edges[eidx].v = hb_solver.c_uint8(c_v)
+        self.g.edges[eidx].u = hb_converter.c_uint8(c_u)
+        self.g.edges[eidx].v = hb_converter.c_uint8(c_v)
         self.g.edges[eidx].color = color
-        self.g.num_edges = hb_solver.c_uint8(eidx + 1)
+        self.g.num_edges = hb_converter.c_uint8(eidx + 1)
 
         pu = self.vertex_pos[u]
         pv = self.vertex_pos[v]
@@ -480,9 +480,9 @@ class GraphScene(QGraphicsScene):
         path = self._make_edge_path(pu, pv, offset_index)
 
         pen_color = {
-            hb_solver.EDGE_BLUE:  self.theme.blue_q(),
-            hb_solver.EDGE_RED:   self.theme.red_q(),
-            hb_solver.EDGE_GREEN: self.theme.green_q(),
+            hb_converter.EDGE_BLUE:  self.theme.blue_q(),
+            hb_converter.EDGE_RED:   self.theme.red_q(),
+            hb_converter.EDGE_GREEN: self.theme.green_q(),
         }[color]
 
         pen = QPen(pen_color, self.theme.edge_width)
@@ -541,7 +541,7 @@ class GraphScene(QGraphicsScene):
         return (1 << int(self.g.num_edges)) - 1
 
     def show_hint_for_edge(self, edge_idx, color, pos):
-        if not self.hints_active or self.edit_mode or not self.solver or not self._is_valid_cut(color):
+        if not self.hints_active or self.edit_mode or not self.converter or not self._is_valid_cut(color):
             return
         self.pending_hint_data = (edge_idx, color, pos)
         self.hint_timer.start(400)
@@ -561,11 +561,11 @@ class GraphScene(QGraphicsScene):
             return
 
         temp_mask = ((1 << int(self.g.num_edges)) - 1) & ~(1 << edge_idx)
-        new_mask = self.solver.cleanup_position(self.g, temp_mask)
+        new_mask = self.converter.cleanup_position(self.g, temp_mask)
         try:
-            game_ptr = self.solver.solve(self.g, new_mask)
+            game_ptr = self.converter.convert(self.g, new_mask)
             formated = 1
-            val_str = self.solver.get_game_value_string(game_ptr, formated)
+            val_str = self.converter.get_game_value_string(game_ptr, formated)
         except Exception as e:
             print(f"[ERROR]: {e}")
             val_str = "Error"
@@ -583,15 +583,15 @@ class GraphScene(QGraphicsScene):
 
     def toggle_bot(self):
         if self.bot_playing_color is None:
-            if self.player_to_move == hb_solver.EDGE_BLUE:
-                self.bot_playing_color = hb_solver.EDGE_RED
-            elif self.player_to_move == hb_solver.EDGE_RED:
-                self.bot_playing_color = hb_solver.EDGE_BLUE
+            if self.player_to_move == hb_converter.EDGE_BLUE:
+                self.bot_playing_color = hb_converter.EDGE_RED
+            elif self.player_to_move == hb_converter.EDGE_RED:
+                self.bot_playing_color = hb_converter.EDGE_BLUE
         else:
             self.bot_playing_color = None
 
     def get_best_moves(self):
-        if not self.solver or self.g.num_edges == 0:
+        if not self.converter or self.g.num_edges == 0:
             return []
 
         valid_moves = []
@@ -605,19 +605,19 @@ class GraphScene(QGraphicsScene):
         move_values = {}
         for idx in valid_moves:
             temp_mask = ((1 << int(self.g.num_edges)) - 1) & ~(1 << idx)
-            new_mask = self.solver.cleanup_position(self.g, temp_mask)
-            game_ptr = self.solver.solve(self.g, new_mask)
+            new_mask = self.converter.cleanup_position(self.g, temp_mask)
+            game_ptr = self.converter.convert(self.g, new_mask)
             move_values[idx] = game_ptr
 
-        is_left = (self.player_to_move == hb_solver.EDGE_BLUE)
-        zero_ptr = self.solver.solve(self.g, 0)
+        is_left = (self.player_to_move == hb_converter.EDGE_BLUE)
+        zero_ptr = self.converter.convert(self.g, 0)
 
         winning = []
         for idx, val in move_values.items():
             if is_left:
-                favorable = self.solver.game_geq(val, zero_ptr)
+                favorable = self.converter.game_geq(val, zero_ptr)
             else:
-                favorable = self.solver.game_geq(zero_ptr, val)
+                favorable = self.converter.game_geq(zero_ptr, val)
             if favorable:
                 winning.append(idx)
 
@@ -633,11 +633,11 @@ class GraphScene(QGraphicsScene):
                 b_val = move_values[b_idx]
 
                 if is_left:
-                    val_geq = self.solver.game_geq(val, b_val)
-                    b_geq = self.solver.game_geq(b_val, val)
+                    val_geq = self.converter.game_geq(val, b_val)
+                    b_geq = self.converter.game_geq(b_val, val)
                 else:
-                    val_geq = self.solver.game_geq(b_val, val)
-                    b_geq = self.solver.game_geq(val, b_val)
+                    val_geq = self.converter.game_geq(b_val, val)
+                    b_geq = self.converter.game_geq(val, b_val)
 
                 if val_geq and not b_geq:
                     to_remove.append(b_idx)

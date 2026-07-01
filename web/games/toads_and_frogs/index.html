@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Toads & Frogs</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .cell.toad { background: #2196f3; color: white; }
+        .cell.frog { background: #f44336; color: white; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <a href="../../index.html" class="logo">[ SHORT GAMES ]</a>
+        <a href="../hotpotch/index.html">Hotpotch</a>
+        <a href="../domineering/index.html">Domineering</a>
+        <a href="index.html">Toads & Frogs</a>
+        <a href="../../core/custom_game.html">JS Sandbox</a>
+    </div>
+
+    <div class="container">
+        <h1>Toads & Frogs</h1>
+        <p>Levý hráč (T - modrý) skáče doprava, Pravý hráč (F - červený) skáče doleva.</p>
+        
+        <label>Délka pole: <input type="number" id="inp-len" value="5" min="1" max="64"></label>
+        <button id="btn-build">Vytvořit pole</button>
+        <p><small>Kliknutím na buňku cykluješ stav: Prázdno -> Toad -> Frog.</small></p>
+
+        <div id="grid" class="grid"></div>
+
+        <button id="btn-calc">Spustit Convert</button>
+        <div id="result" class="result-box">Výsledek se zobrazí zde...</div>
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+</html>

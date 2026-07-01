@@ -76,11 +76,11 @@ Game* game_new() {
     g->left = NULL;
     g->right = NULL;
 
+    make_count++;
     if (make_count % info_count == 0) {
         printf("[INFO] make count %d.   * %d\n",
                (int)(make_count / info_count), info_count);
     }
-    make_count++;
 
     return g;
 }

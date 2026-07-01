@@ -1,0 +1,82 @@
+:root {
+    --bg: #f4f4f9;
+    --text: #222;
+    --nav-bg: #333;
+    --nav-text: #fff;
+    --border: #ccc;
+    --primary: #2d5a2d;
+    --primary-hover: #3a6f3a;
+}
+
+body {
+    font-family: 'Courier New', Courier, monospace;
+    background-color: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 0;
+}
+
+/* Navigační lišta */
+.navbar {
+    background-color: var(--nav-bg);
+    padding: 10px 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    border-bottom: 3px solid var(--primary);
+}
+
+.navbar .logo {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--primary);
+    text-decoration: none;
+    margin-right: auto;
+}
+
+.navbar a {
+    color: var(--nav-text);
+    text-decoration: none;
+    font-size: 1em;
+}
+
+.navbar a:hover {
+    text-decoration: underline;
+    color: var(--primary);
+}
+
+/* Hlavní kontejner */
+.container {
+    max-width: 900px;
+    margin: 30px auto;
+    background: white;
+    padding: 20px 30px;
+    border: 1px solid var(--border);
+    box-shadow: 4px 4px 0px #aaa;
+}
+
+h1, h2 { border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+
+/* Formuláře a tlačítka */
+button {
+    background: #e0e0e0; border: 1px solid #777;
+    padding: 8px 16px; font-family: inherit; font-weight: bold;
+    cursor: pointer; box-shadow: 2px 2px 0px #999;
+}
+button:hover { background: #d0d0d0; transform: translate(1px, 1px); box-shadow: 1px 1px 0px #999; }
+button:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #999; }
+
+input[type="number"], textarea {
+    font-family: inherit; padding: 5px;
+    border: 1px solid #aaa; background: #fff;
+}
+
+/* Výsledek */
+.result-box {
+    margin-top: 20px; padding: 15px; background: #e8f5e9;
+    border: 1px solid #90caf9; font-size: 1.1em;
+}
+
+/* Herní mřížky */
+.grid { display: grid; gap: 2px; margin: 20px 0; background: #999; border: 2px solid #555; padding: 2px; width: max-content; }
+.cell { width: 40px; height: 40px; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; user-select: none; }

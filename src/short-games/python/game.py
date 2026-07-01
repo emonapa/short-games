@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, Iterator, Literal
+from typing import Callable, Iterable, Iterator, Literal
 
 FORMAT_RAW = 0
 FORMAT_FORMATED = 1
@@ -313,6 +313,10 @@ class Game:
 
         return cls(ptr)
 
+    @classmethod
+    def from_string(cls, text: str) -> "Game":
+        return cls(cls._rt().game_from_string(text))
+
     @property
     def left(self) -> GameSide:
         return self._left
@@ -439,26 +443,47 @@ class Game:
         return Game.new(_options_list(left), [self])
 
 
+# Sada jmen metod, ktere lze prepisovat v podtride.
+_OVERRIDABLE_METHODS = frozenset({
+    "convert",
+    "convert_component",
+    "num_moves",
+    "can_left_move",
+    "can_right_move",
+    "do_move_left",
+    "do_move_right",
+    "hash_raw_game_position",
+})
+
 
 class GameConvert:
     """
-    High-level wrapper over GameConvertRuntime.
+    High-level converter from raw game positions to Game.
 
-    It hides GamePtr from the user.
+    Rezimy:
 
-    It supports two modes:
+    1. C backend:
+        conv = GameConvert(use_c=True)
+        g = conv.convert(raw_game, position)
 
-        1. C backend:
-            conv = GameConvert()
-            g = conv.solve(raw_game, position)
+    2. Python backend:
+        class MyConvert(GameConvert):
+            def __init__(self):
+                super().__init__(use_c=False)
 
-        2. Pure Python backend:
-            conv = GameConvert.from_python(solve=my_solve)
-            g = conv.solve(raw_game, position)
+            def num_moves(...): ...
+            def can_left_move(...): ...
+            def can_right_move(...): ...
+            def do_move_left(...): ...
+            def do_move_right(...): ...
+            def hash_raw_game_position(...): ...
 
-    Python callbacks may return either:
-        - Game
-        - raw GamePtr
+        conv = MyConvert()
+        g = conv.convert(raw_game, position)
+
+    convert() a convert_component() se neprepisuji.
+    Pokud use_c=False, pouzije se Python implementace techto dvou metod.
+    Pokud use_c=True, pouzije se C implementace.
     """
 
     _default_runtime = None
@@ -469,27 +494,11 @@ class GameConvert:
         *,
         lib_path: str | None = None,
         memory_multiplier: float = 0.01,
-        use_c: bool = True,
-        solve: Callable | None = None,
-        solve_component: Callable | None = None,
-        num_moves: Callable | None = None,
-        can_left_move: Callable | None = None,
-        can_right_move: Callable | None = None,
-        do_move_left: Callable | None = None,
-        do_move_right: Callable | None = None,
-        hash_raw_game_position: Callable | None = None,
+        use_c: bool = False,
     ):
-        self._solve_fn = solve
-        self._solve_component_fn = solve_component
-        self._num_moves_fn = num_moves
-        self._can_left_move_fn = can_left_move
-        self._can_right_move_fn = can_right_move
-        self._do_move_left_fn = do_move_left
-        self._do_move_right_fn = do_move_right
-        self._hash_raw_game_position_fn = hash_raw_game_position
-
-        self._use_c = use_c
         self._runtime = runtime
+        self._use_c = use_c
+        self._position_cache = {}
 
         if self._use_c and self._runtime is None:
             self._runtime = self._make_runtime(
@@ -544,31 +553,6 @@ class GameConvert:
 
         return cls._default_runtime
 
-    @classmethod
-    def from_python(
-        cls,
-        *,
-        solve: Callable | None = None,
-        solve_component: Callable | None = None,
-        num_moves: Callable | None = None,
-        can_left_move: Callable | None = None,
-        can_right_move: Callable | None = None,
-        do_move_left: Callable | None = None,
-        do_move_right: Callable | None = None,
-        hash_raw_game_position: Callable | None = None,
-    ) -> "GameConvert":
-        return cls(
-            use_c=False,
-            solve=solve,
-            solve_component=solve_component,
-            num_moves=num_moves,
-            can_left_move=can_left_move,
-            can_right_move=can_right_move,
-            do_move_left=do_move_left,
-            do_move_right=do_move_right,
-            hash_raw_game_position=hash_raw_game_position,
-        )
-
     @staticmethod
     def _as_game(value) -> Game:
         if isinstance(value, Game):
@@ -581,88 +565,144 @@ class GameConvert:
             return self._runtime
 
         if not self._use_c:
-            raise RuntimeError("This GameConvert has no C runtime.")
+            raise RuntimeError("Python GameConvert has no C runtime")
 
         self._runtime = self.runtime()
         Game.use_runtime(self._runtime)
         return self._runtime
 
     def initialize(self) -> None:
+        self._position_cache.clear()
+
         if self._runtime is not None:
             self._runtime.initialize()
 
     def free(self) -> None:
+        self._position_cache.clear()
+
         if self._runtime is not None:
             self._runtime.free()
 
-    def solve(self, raw_game, position) -> Game:
-        if self._solve_fn is not None:
-            return self._as_game(self._solve_fn(raw_game, position))
+    # ------------------------------------------------------------------
+    # convert API
+    # ------------------------------------------------------------------
 
-        if not self._use_c:
-            raise NotImplementedError("solve is not implemented")
+    def convert(self, raw_game, position) -> Game:
+        if self._use_c:
+            return self._as_game(self._rt().convert(raw_game, position))
 
-        return self._as_game(self._rt().solve(raw_game, position))
+        total = Game.zero()
 
-    def solve_component(self, raw_game, position) -> Game:
-        if self._solve_component_fn is not None:
-            return self._as_game(self._solve_component_fn(raw_game, position))
+        for component_position in self.independent_components(raw_game, position):
+            component_value = self.convert_component(raw_game, component_position)
+            total = total + component_value
 
-        if not self._use_c:
-            raise NotImplementedError("solve_component is not implemented")
+        return total.canonical
 
-        return self._as_game(self._rt().solve_component(raw_game, position))
+    def convert_component(self, raw_game, position) -> Game:
+        if self._use_c:
+            return self._as_game(self._rt().convert_component(raw_game, position))
 
-    def num_moves(self, raw_game) -> int:
-        if self._num_moves_fn is not None:
-            return int(self._num_moves_fn(raw_game))
+        key = self.position_cache_key(raw_game, position)
 
-        if not self._use_c:
-            raise NotImplementedError("num_moves is not implemented")
+        if key in self._position_cache:
+            return self._position_cache[key]
 
-        return int(self._rt().num_moves(raw_game))
+        left_options = []
+        right_options = []
+
+        for move in range(self.num_moves(raw_game, position)):
+            if self.can_left_move(raw_game, position, move):
+                child_position = self.do_move_left(raw_game, position, move)
+                child_game = self.convert_component(raw_game, child_position)
+                left_options.append(child_game)
+
+            if self.can_right_move(raw_game, position, move):
+                child_position = self.do_move_right(raw_game, position, move)
+                child_game = self.convert_component(raw_game, child_position)
+                right_options.append(child_game)
+
+        result = Game.new(left_options, right_options).canonical
+        self._position_cache[key] = result
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Python cache helpers
+    # ------------------------------------------------------------------
+
+    def independent_components(self, raw_game, position):
+        """
+        Python analogie C get_independent_components.
+
+        Defaultne hra nema zadny rozklad na komponenty.
+        Pokud tvoje hra komponenty ma, prepis tuto metodu.
+        """
+        return [position]
+
+    def position_cache_key(self, raw_game, position):
+        """
+        Python analogie C position_cache_get/insert.
+
+        C verze hashuje pozici pres vsechny legalni tahy.
+        Tady delame podobnou vec, plus pridame id(raw_game), aby se nemichaly
+        pozice ruznych raw her ve stejnem solveru.
+        """
+        return (id(raw_game), self.hash_graph_state(raw_game, position))
+
+    def hash_graph_state(self, raw_game, position) -> int:
+        total_hash = 0
+
+        for move in range(self.num_moves(raw_game, position)):
+            if (
+                self.can_left_move(raw_game, position, move)
+                or self.can_right_move(raw_game, position, move)
+            ):
+                total_hash ^= self.hash_raw_game_position(raw_game, position, move)
+
+        return total_hash
+
+    # ------------------------------------------------------------------
+    # Primitive raw-game API
+    #
+    # Pokud use_c=True, tyto metody volaji C runtime.
+    # Pokud use_c=False, musi je prepsat podtrida.
+    # ------------------------------------------------------------------
+
+    def num_moves(self, raw_game, position = None) -> int:
+        if self._use_c:
+            return int(self._rt().num_moves(raw_game, position))
+
+        raise NotImplementedError("num_moves must be implemented for Python backend")
 
     def can_left_move(self, raw_game, position, move: int) -> bool:
-        if self._can_left_move_fn is not None:
-            return bool(self._can_left_move_fn(raw_game, position, move))
+        if self._use_c:
+            return bool(self._rt().can_left_move(raw_game, position, move))
 
-        if not self._use_c:
-            raise NotImplementedError("can_left_move is not implemented")
-
-        return bool(self._rt().can_left_move(raw_game, position, move))
+        raise NotImplementedError("can_left_move must be implemented for Python backend")
 
     def can_right_move(self, raw_game, position, move: int) -> bool:
-        if self._can_right_move_fn is not None:
-            return bool(self._can_right_move_fn(raw_game, position, move))
+        if self._use_c:
+            return bool(self._rt().can_right_move(raw_game, position, move))
 
-        if not self._use_c:
-            raise NotImplementedError("can_right_move is not implemented")
-
-        return bool(self._rt().can_right_move(raw_game, position, move))
+        raise NotImplementedError("can_right_move must be implemented for Python backend")
 
     def do_move_left(self, raw_game, position, move: int):
-        if self._do_move_left_fn is not None:
-            return self._do_move_left_fn(raw_game, position, move)
+        if self._use_c:
+            return self._rt().do_move_left(raw_game, position, move)
 
-        if not self._use_c:
-            raise NotImplementedError("do_move_left is not implemented")
-
-        return self._rt().do_move_left(raw_game, position, move)
+        raise NotImplementedError("do_move_left must be implemented for Python backend")
 
     def do_move_right(self, raw_game, position, move: int):
-        if self._do_move_right_fn is not None:
-            return self._do_move_right_fn(raw_game, position, move)
+        if self._use_c:
+            return self._rt().do_move_right(raw_game, position, move)
 
-        if not self._use_c:
-            raise NotImplementedError("do_move_right is not implemented")
-
-        return self._rt().do_move_right(raw_game, position, move)
+        raise NotImplementedError("do_move_right must be implemented for Python backend")
 
     def hash_raw_game_position(self, raw_game, position, move: int) -> int:
-        if self._hash_raw_game_position_fn is not None:
-            return int(self._hash_raw_game_position_fn(raw_game, position, move))
+        if self._use_c:
+            return int(self._rt().hash_raw_game_position(raw_game, position, move))
 
-        if not self._use_c:
-            raise NotImplementedError("hash_raw_game_position is not implemented")
-
-        return int(self._rt().hash_raw_game_position(raw_game, position, move))
+        raise NotImplementedError(
+            "hash_raw_game_position must be implemented for Python backend"
+        )
