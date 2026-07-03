@@ -1,5 +1,5 @@
 import initWasm from './libdomineering.js';
-import { Game, GameConvertRuntime } from '../../core/game.js';
+import { Game, GameConvert } from '../../core/game.js';
 import { DomineeringConverter } from './domineering_converter.js';
 
 const ui = {
@@ -17,7 +17,7 @@ let mask = 0n;
 
 function drawGrid() {
     ui.grid.innerHTML = '';
-    ui.grid.style.gridTemplateColumns = `repeat(${boardW}, 40px)`;
+    ui.grid.style.gridTemplateColumns = `repeat(${boardW}, var(--cell-size, 40px))`;
     
     for (let r = 0; r < boardH; r++) {
         for (let c = 0; c < boardW; c++) {
@@ -41,27 +41,25 @@ function drawGrid() {
 }
 
 initWasm().then((wasmModule) => {
-    const runtime = new GameConvertRuntime(wasmModule);
-    runtime.initialize();
-    Game.useRuntime(runtime);
+    GameConvert.configureRuntime(wasmModule);
     const converter = new DomineeringConverter();
 
     ui.btnBuild.onclick = () => {
         boardW = parseInt(ui.w.value);
         boardH = parseInt(ui.h.value);
         if (boardW * boardH > 64) {
-            alert("Moc velké pole! Max 64 buněk."); return;
+            alert("Board is too large. Maximum is 64 cells."); return;
         }
         mask = 0n;
         drawGrid();
     };
 
     ui.btnCalc.onclick = () => {
-        ui.res.textContent = "Počítám...";
+        ui.res.textContent = "Computing...";
         const s = performance.now();
         const val = converter.convert(boardW, boardH, mask);
         const e = performance.now();
-        ui.res.innerHTML = `Hodnota: <b>${val.formatted}</b> <br> Kanonicky: ${val.canonical.formatted} <br><small>Čas: ${(e-s).toFixed(1)}ms</small>`;
+        ui.res.innerHTML = `Value: <b>${val.formatted}</b> <br><small>Time: ${(e-s).toFixed(1)}ms</small>`;
     };
 
     drawGrid();

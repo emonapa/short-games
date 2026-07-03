@@ -1,4 +1,4 @@
-import { Game, GameConvert } from './game.js';
+import { Game, GameConvert } from '../../core/game.js';
 
 export const MAX_VERTICES = 128;
 export const MAX_EDGES = 128;
@@ -11,6 +11,14 @@ function intToUInt128(valueBigInt) {
     const low = valueBigInt & 0xFFFFFFFFFFFFFFFFn;
     const high = (valueBigInt >> 64n) & 0xFFFFFFFFFFFFFFFFn;
     return { low, high };
+}
+
+function uint128FromPtr(wasm, ptr) {
+    const low1 = BigInt(wasm.getValue(ptr, 'i32') >>> 0);
+    const low2 = BigInt(wasm.getValue(ptr + 4, 'i32') >>> 0);
+    const high1 = BigInt(wasm.getValue(ptr + 8, 'i32') >>> 0);
+    const high2 = BigInt(wasm.getValue(ptr + 12, 'i32') >>> 0);
+    return low1 | (low2 << 32n) | (high1 << 64n) | (high2 << 96n);
 }
 
 export function fullLiveMask(numEdges) {
@@ -27,7 +35,7 @@ export class HBConverter extends GameConvert {
 
     _allocGraph(graphObj) {
         const wasm = this._rt().wasm;
-        const ptr = wasm._malloc(1028); // 4 + 128 * 8 bajtů
+        const ptr = wasm._malloc(1028); // 4-byte header + 128 edge records.
 
         wasm.setValue(ptr, graphObj.numVertices, 'i8');
         wasm.setValue(ptr + 1, graphObj.numEdges, 'i8');
@@ -49,7 +57,7 @@ export class HBConverter extends GameConvert {
         const ptr = wasm._malloc(16);
         const { low, high } = intToUInt128(liveMaskBigInt);
         
-        // Zápis jako 4x 32-bit pro bezpečí
+        // Store uint128 as four 32-bit words because wasm memory is byte-addressed.
         const low1 = Number(low & 0xFFFFFFFFn);
         const low2 = Number((low >> 32n) & 0xFFFFFFFFn);
         const high1 = Number(high & 0xFFFFFFFFn);
@@ -86,6 +94,25 @@ export class HBConverter extends GameConvert {
         } finally {
             this._rt().wasm._free(graphPtr);
             this._rt().wasm._free(posPtr);
+        }
+    }
+
+    cleanupPosition(graphObj, liveMaskBigInt) {
+        const wasm = this._rt().wasm;
+        if (!wasm._cleanup_position) {
+            throw new Error("Hotpotch wasm does not export cleanup_position");
+        }
+
+        const graphPtr = this._allocGraph(graphObj);
+        const resultPtr = wasm._malloc(16);
+        const { low, high } = intToUInt128(liveMaskBigInt);
+
+        try {
+            wasm._cleanup_position(resultPtr, graphPtr, low, high);
+            return uint128FromPtr(wasm, resultPtr);
+        } finally {
+            wasm._free(resultPtr);
+            wasm._free(graphPtr);
         }
     }
 }

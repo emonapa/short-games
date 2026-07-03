@@ -1,11 +1,17 @@
 :root {
-    --bg: #f4f4f9;
-    --text: #222;
-    --nav-bg: #333;
-    --nav-text: #fff;
-    --border: #ccc;
+    --bg: #252525;
+    --panel: #2f2f2f;
+    --panel-strong: #333333;
+    --text: #f1f1f1;
+    --muted: #b8b8b8;
+    --nav-bg: #202020;
+    --nav-text: #f5f5f5;
+    --border: #555;
     --primary: #2d5a2d;
     --primary-hover: #3a6f3a;
+    --button-bg: #444;
+    --button-hover: #555;
+    --button-shadow: #151515;
 }
 
 body {
@@ -16,7 +22,7 @@ body {
     padding: 0;
 }
 
-/* Navigační lišta */
+/* Shared top navigation. */
 .navbar {
     background-color: var(--nav-bg);
     padding: 10px 20px;
@@ -27,9 +33,9 @@ body {
 }
 
 .navbar .logo {
-    font-size: 1.2em;
+    font-size: 1.45em;
     font-weight: bold;
-    color: var(--primary);
+    color: #72b772;
     text-decoration: none;
     margin-right: auto;
 }
@@ -42,41 +48,116 @@ body {
 
 .navbar a:hover {
     text-decoration: underline;
-    color: var(--primary);
+    color: #72b772;
 }
 
-/* Hlavní kontejner */
+.navbar .github-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin-left: -8px;
+}
+
+.navbar .github-link img {
+    width: 28px;
+    height: 28px;
+    display: block;
+    filter: invert(1);
+}
+
 .container {
     max-width: 900px;
     margin: 30px auto;
-    background: white;
+    background: var(--panel);
     padding: 20px 30px;
     border: 1px solid var(--border);
-    box-shadow: 4px 4px 0px #aaa;
+    box-shadow: 4px 4px 0px #111;
 }
 
 h1, h2 { border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+p, small, li { color: var(--muted); }
+code { color: #b7d7ff; }
 
-/* Formuláře a tlačítka */
 button {
-    background: #e0e0e0; border: 1px solid #777;
-    padding: 8px 16px; font-family: inherit; font-weight: bold;
-    cursor: pointer; box-shadow: 2px 2px 0px #999;
+    background: var(--button-bg);
+    color: var(--text);
+    border: 1px solid #666;
+    padding: 8px 16px;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 2px 2px 0px var(--button-shadow);
 }
-button:hover { background: #d0d0d0; transform: translate(1px, 1px); box-shadow: 1px 1px 0px #999; }
-button:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #999; }
+button:hover { background: var(--button-hover); transform: translate(1px, 1px); box-shadow: 1px 1px 0px var(--button-shadow); }
+button:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px var(--button-shadow); }
 
 input[type="number"], textarea {
-    font-family: inherit; padding: 5px;
-    border: 1px solid #aaa; background: #fff;
+    font-family: inherit;
+    color: var(--text);
+    padding: 5px;
+    border: 1px solid #777;
+    background: #202020;
 }
 
-/* Výsledek */
+.editor-frame {
+    min-height: 400px;
+    max-height: 60vh;
+    overflow: auto;
+    border: 1px solid #777;
+    background: #202020 !important;*/
+    box-shadow: inset 1px 1px 0 #111;
+}
+
+#code-editor {
+    display: block;
+    min-height: 400px;
+    outline: none;
+    white-space: pre;
+    color: #EfEfEf;
+    background: #202020;
+}
+
 .result-box {
-    margin-top: 20px; padding: 15px; background: #e8f5e9;
-    border: 1px solid #90caf9; font-size: 1.1em;
+    margin-top: 20px;
+    padding: 15px;
+    background: #223322;
+    border: 1px solid #4f7e4f;
+    font-size: 1.1em;
 }
 
-/* Herní mřížky */
-.grid { display: grid; gap: 2px; margin: 20px 0; background: #999; border: 2px solid #555; padding: 2px; width: max-content; }
-.cell { width: 40px; height: 40px; background: #fff; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; user-select: none; }
+.grid {
+    display: grid;
+    gap: 3px;
+    margin: 28px 0;
+    background: #555;
+    border: 2px solid #777;
+    padding: 3px;
+    width: max-content;
+}
+.cell {
+    width: var(--cell-size, 40px);
+    height: var(--cell-size, 40px);
+    background: #202020;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
+
+
+.board-page .container {
+    max-width: min(1180px, calc(100vw - 56px));
+    min-height: calc(100vh - 150px);
+    font-size: 1.25rem;
+}
+
+.board-page h1 { font-size: 2.6rem; }
+.board-page p, .board-page label, .board-page button, .board-page .result-box { font-size: 1.25rem; }
+.board-page input[type="number"] { width: 5.5rem; font-size: 1.2rem; }
+.board-page .grid { --cell-size: clamp(88px, 9vw, 112px); }
+.board-page .cell { font-size: 1.6rem; }

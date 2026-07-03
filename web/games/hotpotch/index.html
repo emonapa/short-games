@@ -4,20 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hotpotch Builder & Player</title>
+    <link rel="stylesheet" href="../../style.css">
     <link rel="stylesheet" href="theme.css">
 </head>
 <body>
+    <div class="navbar">
+        <a href="../../index.html" class="logo">[ SHORT GAMES ]</a>
+        <a href="index.html">Hotpotch</a>
+        <a href="../domineering/index.html">Domineering</a>
+        <a href="../toads_and_frogs/index.html">Toads & Frogs</a>
+        <a href="../../custom_game/custom_game.html">JS Sandbox</a>
+        <a class="github-link" href="https://github.com/emonapa/short-games" title="GitHub repository" aria-label="GitHub repository"><img src="../../figs/github_logo.svg" alt=""></a>
+    </div>
+
     <div class="toolbar">
-        <button id="btn-clear" title="Clear scene">🗑️</button>
+        <button id="btn-clear" class="icon-btn" title="Clear scene"><img src="figs/trash-bin.svg" alt=""></button>
         <div class="divider"></div>
         
         <span class="label">Playing:</span>
         <button id="btn-player" class="color-btn blue" title="Switch player"></button>
-        <button id="btn-edit" class="tool-btn" title="Edit mode">✏️</button>
-        
         <div class="divider"></div>
-        <button id="btn-undo" class="tool-btn" title="Undo">↩️</button>
-        <button id="btn-redo" class="tool-btn" title="Redo">↪️</button>
+        <button id="btn-undo" class="icon-btn" title="Undo"><img src="figs/history-left.svg" alt=""></button>
+        <button id="btn-redo" class="icon-btn" title="Redo"><img src="figs/history-right.svg" alt=""></button>
 
         <div class="divider"></div>
         <button id="btn-convert" class="action-btn">Convert</button>
@@ -27,9 +35,24 @@
         
         <span class="label">Building:</span>
         <button id="btn-build-color" class="color-btn blue" title="Switch edge color"></button>
+        <div class="menu-wrap">
+            <button id="btn-menu" class="menu-btn" title="Menu">⋮</button>
+            <div id="hotpotch-menu" class="hotpotch-menu" hidden>
+                <button id="btn-hints" class="menu-item" type="button">Best moves</button>
+                <button id="btn-best" class="menu-item" type="button">Play best move</button>
+                <button id="btn-analysis" class="menu-item" type="button">Dominated / reversible moves</button>
+                <button id="btn-bot" class="menu-item" type="button">Play against bot</button>
+                <button id="btn-edit" class="menu-item" type="button">Edit mode</button>
+                <button id="btn-save" class="menu-item" type="button">Save</button>
+                <button id="btn-load" class="menu-item" type="button">Load</button>
+                <button id="btn-copy-value" class="menu-item" type="button">Copy computed value</button>
+                <button id="btn-help" class="menu-item" type="button">Help</button>
+            </div>
+            <input id="file-load" type="file" accept="application/json,.json,.hbg.json" hidden>
+        </div>
     </div>
 
-    <!-- SVG plátno, které nahrazuje QGraphicsView -->
+    <!-- SVG canvas replacing the original QGraphicsView. -->
     <div class="canvas-container" id="canvas-container">
         <svg id="game-svg" width="100%" height="100%"></svg>
     </div>

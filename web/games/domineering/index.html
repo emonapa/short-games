@@ -1,36 +1,37 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Domineering</title>
     <link rel="stylesheet" href="../../style.css">
     <style>
         .cell.removed { background: #333; }
-        .cell:hover:not(.removed) { background: #e0e0e0; }
+        .cell:hover:not(.removed) { background: #3a3a3a; }
     </style>
 </head>
-<body>
+<body class="board-page">
     <div class="navbar">
         <a href="../../index.html" class="logo">[ SHORT GAMES ]</a>
         <a href="../hotpotch/index.html">Hotpotch</a>
         <a href="index.html">Domineering</a>
         <a href="../toads_and_frogs/index.html">Toads & Frogs</a>
-        <a href="../../core/custom_game.html">JS Sandbox</a>
+        <a href="../../custom_game/custom_game.html">JS Sandbox</a>
+        <a class="github-link" href="https://github.com/emonapa/short-games" title="GitHub repository" aria-label="GitHub repository"><img src="../../figs/github_logo.svg" alt=""></a>
     </div>
 
     <div class="container">
         <h1>Domineering</h1>
-        <p>Levý hráč staví vertikálně (|), Pravý hráč horizontálně (-).</p>
+        <p>Left places vertical dominoes (|), Right places horizontal dominoes (-).</p>
         
-        <label>Šířka: <input type="number" id="inp-w" value="3" min="1" max="8"></label>
-        <label>Výška: <input type="number" id="inp-h" value="3" min="1" max="8"></label>
-        <button id="btn-build">Vytvořit plochu</button>
-        <p><small>Kliknutím na buňku ji odstraníš (vykrojíš z hrací plochy).</small></p>
+        <label>Width: <input type="number" id="inp-w" value="3" min="1" max="8"></label>
+        <label>Height: <input type="number" id="inp-h" value="3" min="1" max="8"></label>
+        <button id="btn-build">Build board</button>
+        <p><small>Click a cell to remove it from the board.</small></p>
 
         <div id="grid" class="grid"></div>
 
-        <button id="btn-calc">Spustit Convert</button>
-        <div id="result" class="result-box">Výsledek se zobrazí zde...</div>
+        <button id="btn-calc">Run Convert</button>
+        <div id="result" class="result-box">The result will appear here...</div>
     </div>
     <script type="module" src="app.js"></script>
 </body>
