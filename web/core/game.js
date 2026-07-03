@@ -28,6 +28,9 @@ class GameRuntime {
 
     game_new() { return this.wasm._game_new(); }
     game_zero() { return this.wasm._game_zero(); }
+    game_one() {
+        return this.wasm._game_one ? this.wasm._game_one() : this.wasm._make_int(1);
+    }
     game_star() { return this.wasm._game_star(); }
     game_up() { return this.wasm._game_up(); }
     game_down() { return this.wasm._game_down(); }
@@ -74,22 +77,28 @@ class GameRuntime {
         return resultPtr;
     }
 
-    game_array_new() { return 0; }
-    game_len(gamesPtr) { return this.wasm._game_len(gamesPtr); }
-    game_reserve(gamesPtr, expectedCap) { return this.wasm._game_reserve(gamesPtr, expectedCap); }
-    game_push(gamesPtr, valuePtr) { return this.wasm._game_push(gamesPtr, valuePtr); }
-    game_append(gamesPtr, valuePtr) { return this.wasm._game_append(gamesPtr, valuePtr); }
-    game_append_many(gamesPtr, otherPtr) { return this.wasm._game_append_many(gamesPtr, otherPtr); }
-    game_resize(gamesPtr, newLen) { return this.wasm._game_resize(gamesPtr, newLen); }
-    game_free_array(gamesPtr) { this.wasm._game_free(gamesPtr); return gamesPtr; }
-    
-    game_pop(gamesPtr) {
-        const val = this.wasm._game_pop(gamesPtr);
-        return { array: gamesPtr, value: val };
+    game_array_new() {
+        const handle = this.wasm._malloc(4);
+        this.wasm.setValue(handle, 0, 'i32');
+        return handle;
     }
-    game_first(gamesPtr) { return this.wasm._game_first(gamesPtr); }
-    game_last(gamesPtr) { return this.wasm._game_last(gamesPtr); }
-    game_remove_unordered(gamesPtr, index) { return this.wasm._game_remove_unordered(gamesPtr, index); }
+    game_array_data(arrayHandle) { return this.wasm.getValue(arrayHandle, 'i32'); }
+    game_len(arrayHandle) { return this.wasm._game_len(arrayHandle); }
+    game_reserve(arrayHandle, expectedCap) { this.wasm._game_reserve(arrayHandle, expectedCap); return arrayHandle; }
+    game_push(arrayHandle, valuePtr) { this.wasm._game_push(arrayHandle, valuePtr); return arrayHandle; }
+    game_append(arrayHandle, valuePtr) { this.wasm._game_append(arrayHandle, valuePtr); return arrayHandle; }
+    game_append_many(arrayHandle, otherHandle) { this.wasm._game_append_many(arrayHandle, this.game_array_data(otherHandle)); return arrayHandle; }
+    game_resize(arrayHandle, newLen) { this.wasm._game_resize(arrayHandle, newLen); return arrayHandle; }
+    game_free_array(arrayHandle, freeHandle = true) {
+        this.wasm._game_free(arrayHandle);
+        if (freeHandle) this.wasm._free(arrayHandle);
+        return arrayHandle;
+    }
+    
+    game_pop(arrayHandle) { return this.wasm._game_pop(arrayHandle); }
+    game_first(arrayHandle) { return this.wasm._game_first(arrayHandle); }
+    game_last(arrayHandle) { return this.wasm._game_last(arrayHandle); }
+    game_remove_unordered(arrayHandle, index) { this.wasm._game_remove_unordered(arrayHandle, index); return arrayHandle; }
 }
 
 export class GameSide {
@@ -102,13 +111,8 @@ export class GameSide {
     get _rt() { return Game._rt(); }
 
     get _array() {
-        const offset = this.side === "left" ? 0 : 4; 
-        return this._rt.wasm.getValue(this.game.ptr + offset, 'i32');
-    }
-
-    set _array(valuePtr) {
         const offset = this.side === "left" ? 0 : 4;
-        this._rt.wasm.setValue(this.game.ptr + offset, valuePtr, 'i32');
+        return this.game.ptr + offset;
     }
 
     toList() {
@@ -118,44 +122,42 @@ export class GameSide {
     }
 
     reserve(expectedCap) {
-        this._array = this._rt.game_reserve(this._array, expectedCap);
+        this._rt.game_reserve(this._array, expectedCap);
         return this;
     }
 
     append(value) {
         if (value instanceof GameSide) {
-            this._array = this._rt.game_append_many(this._array, value._array);
+            this._rt.game_append_many(this._array, value._array);
             return this;
         }
         if (value instanceof G || Array.isArray(value)) {
             for (const child of value) this.append(child);
             return this;
         }
-        this._array = this._rt.game_append(this._array, Game.ptrOf(value));
+        this._rt.game_append(this._array, Game.ptrOf(value));
         return this;
     }
 
     push(child) {
-        this._array = this._rt.game_push(this._array, Game.ptrOf(child));
+        this._rt.game_push(this._array, Game.ptrOf(child));
         return this;
     }
 
     pop() {
-        const res = this._rt.game_pop(this._array);
-        this._array = res.array;
-        return new Game(res.value);
+        return new Game(this._rt.game_pop(this._array));
     }
 
     first() { return new Game(this._rt.game_first(this._array)); }
     last() { return new Game(this._rt.game_last(this._array)); }
     
     removeUnordered(index) {
-        this._array = this._rt.game_remove_unordered(this._array, index);
+        this._rt.game_remove_unordered(this._array, index);
         return this;
     }
 
     clear() {
-        this._array = this._rt.game_resize(this._array, 0);
+        this._rt.game_resize(this._array, 0);
         return this;
     }
 
@@ -166,7 +168,8 @@ export class GameSide {
         if (index < 0) index += n;
         if (index < 0 || index >= n) throw new Error(`IndexError: ${index}`);
         
-        const childPtr = this._rt.wasm.getValue(this._array + (index * 4), 'i32');
+        const dataPtr = this._rt.game_array_data(this._array);
+        const childPtr = this._rt.wasm.getValue(dataPtr + (index * 4), 'i32');
         return new Game(childPtr);
     }
 
@@ -197,6 +200,7 @@ export class Game {
         }
         Game._runtime = new GameRuntime(wasmModule);
         Game._runtime.initialize(memoryMultiplier);
+        return Game._runtime;
     }
 
     static useRuntime(runtime) {
@@ -204,7 +208,7 @@ export class Game {
     }
 
     static _rt() {
-        if (!Game._runtime) throw new Error("Runtime not configured.");
+        if (!Game._runtime) throw new Error("Runtime not configured. Call Game.configure(wasmModule) or GameConvert.configureRuntime(wasmModule) first.");
         return Game._runtime;
     }
 
@@ -230,7 +234,7 @@ export class Game {
         try {
             for (const child of leftItems) leftArr = rt.game_push(leftArr, Game.ptrOf(child));
             for (const child of rightItems) rightArr = rt.game_push(rightArr, Game.ptrOf(child));
-            return new Game(rt.game_from_game_arrays(leftArr, rightArr));
+            return new Game(rt.game_from_game_arrays(rt.game_array_data(leftArr), rt.game_array_data(rightArr)));
         } finally {
             rt.game_free_array(leftArr);
             rt.game_free_array(rightArr);
@@ -238,7 +242,7 @@ export class Game {
     }
 
     static zero() { return new Game(Game._rt().game_zero()); }
-    static one() { return new Game(Game._rt().make_int(1)); }
+    static one() { return new Game(Game._rt().game_one()); }
     static star(n = 1) { return n === 1 ? new Game(Game._rt().game_star()) : new Game(Game._rt().make_nimber(n)); }
     static nimber(n = 1) { return new Game(Game._rt().make_nimber(n)); }
     static up(n = 1) { return n === 1 ? new Game(Game._rt().game_up()) : new Game(Game._rt().make_up_multiple(n, 0)); }
@@ -294,7 +298,7 @@ export class Game {
     ror(left) { return Game.new(_optionsList(left), [this]); }
 }
 
-export class GameConvertRuntime extends GameRuntime {
+class GameConvertRuntime extends GameRuntime {
     constructor(wasmModule) {
         super(wasmModule);
         this._convertInitialized = false;
@@ -328,20 +332,61 @@ export class GameConvertRuntime extends GameRuntime {
 }
 
 export class GameConvert {
-    constructor({ runtime = null, useC = false } = {}) {
+    static _defaultRuntime = null;
+
+    constructor({ runtime = null, wasmModule = null, memoryMultiplier = 0.01, useC = false } = {}) {
         this._runtime = runtime;
         this._useC = useC;
         this._positionCache = new Map();
 
-        if (this._useC && !this._runtime) {
-            this._runtime = Game._rt();
+        if (this._useC && this._runtime == null && wasmModule != null) {
+            this._runtime = this.constructor._makeRuntime(wasmModule, memoryMultiplier);
         }
+
+        if (this._useC && !this._runtime) {
+            this._runtime = this.constructor.runtime();
+        }
+
+        if (this._runtime) {
+            Game.useRuntime(this._runtime);
+        }
+    }
+
+    static configureRuntime(wasmModule, memoryMultiplier = 0.01) {
+        if (this._defaultRuntime) {
+            try { this._defaultRuntime.free(); } catch (e) {}
+        }
+
+        this._defaultRuntime = this._makeRuntime(wasmModule, memoryMultiplier);
+        Game.useRuntime(this._defaultRuntime);
+        return this._defaultRuntime;
+    }
+
+    static useRuntime(runtime) {
+        this._defaultRuntime = runtime;
+        Game.useRuntime(runtime);
+    }
+
+    static _makeRuntime(wasmModule, memoryMultiplier = 0.01) {
+        const runtime = new GameConvertRuntime(wasmModule);
+        runtime.initialize(memoryMultiplier);
+        return runtime;
+    }
+
+    static runtime() {
+        if (!this._defaultRuntime) {
+            throw new Error("GameConvert runtime not configured. Call GameConvert.configureRuntime(wasmModule) before using a C-backed converter.");
+        }
+
+        return this._defaultRuntime;
     }
 
     _rt() {
         if (this._runtime) return this._runtime;
-        if (!this._useC) throw new Error("Python/JS GameConvert has no C runtime configured");
-        return Game._rt();
+        if (!this._useC) throw new Error("JS GameConvert has no C runtime configured");
+        this._runtime = this.constructor.runtime();
+        Game.useRuntime(this._runtime);
+        return this._runtime;
     }
 
     initialize() {
@@ -443,3 +488,5 @@ export class GameConvert {
         throw new Error("hashRawGamePosition must be implemented for JS backend");
     }
 }
+
+export { GameConvert as GameConverter };

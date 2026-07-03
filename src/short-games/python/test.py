@@ -1,4 +1,4 @@
-from game import Game, G
+from game import Game, Ga
 
 try:
     K = Game.from_string("{**|0}")

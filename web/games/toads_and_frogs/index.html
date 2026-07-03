@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Toads & Frogs</title>
@@ -9,27 +9,28 @@
         .cell.frog { background: #f44336; color: white; }
     </style>
 </head>
-<body>
+<body class="board-page">
     <div class="navbar">
         <a href="../../index.html" class="logo">[ SHORT GAMES ]</a>
         <a href="../hotpotch/index.html">Hotpotch</a>
         <a href="../domineering/index.html">Domineering</a>
         <a href="index.html">Toads & Frogs</a>
-        <a href="../../core/custom_game.html">JS Sandbox</a>
+        <a href="../../custom_game/custom_game.html">JS Sandbox</a>
+        <a class="github-link" href="https://github.com/emonapa/short-games" title="GitHub repository" aria-label="GitHub repository"><img src="../../figs/github_logo.svg" alt=""></a>
     </div>
 
     <div class="container">
         <h1>Toads & Frogs</h1>
-        <p>Levý hráč (T - modrý) skáče doprava, Pravý hráč (F - červený) skáče doleva.</p>
+        <p>Left (T - blue toads) moves right, Right (F - red frogs) moves left.</p>
         
-        <label>Délka pole: <input type="number" id="inp-len" value="5" min="1" max="64"></label>
-        <button id="btn-build">Vytvořit pole</button>
-        <p><small>Kliknutím na buňku cykluješ stav: Prázdno -> Toad -> Frog.</small></p>
+        <label>Board length: <input type="number" id="inp-len" value="5" min="1" max="10"></label>
+        <button id="btn-build">Build board</button>
+        <p><small>Click a cell to cycle its state: Empty -> Toad -> Frog.</small></p>
 
         <div id="grid" class="grid"></div>
 
-        <button id="btn-calc">Spustit Convert</button>
-        <div id="result" class="result-box">Výsledek se zobrazí zde...</div>
+        <button id="btn-calc">Run Convert</button>
+        <div id="result" class="result-box">The result will appear here...</div>
     </div>
     <script type="module" src="app.js"></script>
 </body>

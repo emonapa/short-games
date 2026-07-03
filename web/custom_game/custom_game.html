@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>JS Sandbox - Custom Game</title>
+    <link rel="stylesheet" href="prism.min.css">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <div class="navbar">
+        <a href="../index.html" class="logo">[ SHORT GAMES ]</a>
+        <a href="../games/hotpotch/index.html">Hotpotch</a>
+        <a href="../games/domineering/index.html">Domineering</a>
+        <a href="../games/toads_and_frogs/index.html">Toads & Frogs</a>
+        <a href="custom_game.html">JS Sandbox</a>
+        <a class="github-link" href="https://github.com/emonapa/short-games" title="GitHub repository" aria-label="GitHub repository"><img src="../figs/github_logo.svg" alt=""></a>
+    </div>
+
+    <div class="container">
+        <h1>JS Sandbox: Write a Custom Game</h1>
+        <p>Use the <code>GameConvert</code> API to write custom rules, for example NIM. Your script must return a <code>Game</code> instance.</p>
+        
+        <pre class="editor-frame language-javascript"><code id="code-editor" class="language-javascript">// Example: NIM with one heap
+class Nim extends GameConvert {
+    constructor() { super({ useC: false }); }
+
+    // rawGame is the initial heap size, position is the current component state
+    independentComponents(rawGame, position) { return [position ?? rawGame]; }
+    numMoves(rawGame, position) { return position; }
+    
+    // Both sides can remove the same number of tokens
+    canLeftMove(rawGame, position, move) { return true; }
+    canRightMove(rawGame, position, move) { return true; }
+    
+    // move is the move index. Removed tokens = move + 1.
+    doMoveLeft(rawGame, position, move) { return position - (move + 1); }
+    doMoveRight(rawGame, position, move) { return position - (move + 1); }
+    
+    positionCacheKey(rawGame, position) { return `${rawGame}:${position}`; }
+    hashRawGamePosition(rawGame, position, move) { return (position << 8) ^ move; }
+}
+
+const nim = new Nim();
+// Convert a heap of size 4. The expected value is *4.
+return nim.convert(4, null);</code></pre>
+        
+        <br><br>
+        <button id="btn-run">Run Code</button>
+
+        <div id="result" class="result-box">The result will appear here...</div>
+    </div>
+
+    <script src="prism.min.js"></script>
+    <script type="module" src="custom_app.js"></script>
+</body>
+</html>

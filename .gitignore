@@ -4,6 +4,7 @@ venv/
 emsdk/
 __pycache__/
 dist/
+help.txt
 
 TAGS
 

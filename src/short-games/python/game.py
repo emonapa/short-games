@@ -141,7 +141,7 @@ class GameSide:
 
 
 
-class G:
+class Ga:
     def __init__(self, *items):
         self.items = list(items)
 

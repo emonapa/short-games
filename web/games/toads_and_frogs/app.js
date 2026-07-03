@@ -1,5 +1,5 @@
 import initWasm from './libtoads_and_frogs.js';
-import { Game, GameConvertRuntime } from '../../core/game.js';
+import { Game, GameConvert } from '../../core/game.js';
 import { TafConverter } from './taf_converter.js';
 
 const ui = {
@@ -16,7 +16,7 @@ let frogsMask = 0n;
 
 function drawGrid() {
     ui.grid.innerHTML = '';
-    ui.grid.style.gridTemplateColumns = `repeat(${boardLen}, 40px)`;
+    ui.grid.style.gridTemplateColumns = `repeat(${boardLen}, var(--cell-size, 40px))`;
     
     for (let i = 0; i < boardLen; i++) {
         const cell = document.createElement('div');
@@ -31,14 +31,14 @@ function drawGrid() {
 
         cell.onclick = () => {
             if (isToad) {
-                // Přepni Toad na Frog
+                // Cycle Toad to Frog.
                 toadsMask &= ~(1n << BigInt(i));
                 frogsMask |= (1n << BigInt(i));
             } else if (isFrog) {
-                // Přepni Frog na prázdno
+                // Cycle Frog to empty.
                 frogsMask &= ~(1n << BigInt(i));
             } else {
-                // Přepni prázdno na Toad
+                // Cycle empty to Toad.
                 toadsMask |= (1n << BigInt(i));
             }
             drawGrid();
@@ -48,24 +48,22 @@ function drawGrid() {
 }
 
 initWasm().then((wasmModule) => {
-    const runtime = new GameConvertRuntime(wasmModule);
-    runtime.initialize();
-    Game.useRuntime(runtime);
+    GameConvert.configureRuntime(wasmModule);
     const converter = new TafConverter();
 
     ui.btnBuild.onclick = () => {
         boardLen = parseInt(ui.len.value);
-        if (boardLen > 64) { alert("Max 64!"); return; }
+        if (boardLen > 10) { alert("Max 10 cells."); return; }
         toadsMask = 0n; frogsMask = 0n;
         drawGrid();
     };
 
     ui.btnCalc.onclick = () => {
-        ui.res.textContent = "Počítám...";
+        ui.res.textContent = "Computing...";
         const s = performance.now();
         const val = converter.convert(boardLen, toadsMask, frogsMask);
         const e = performance.now();
-        ui.res.innerHTML = `Hodnota: <b>${val.formatted}</b> <br> Kanonicky: ${val.canonical.formatted} <br><small>Čas: ${(e-s).toFixed(1)}ms</small>`;
+        ui.res.innerHTML = `Value: <b>${val.formatted}</b> <br><small>Time: ${(e-s).toFixed(1)}ms</small>`;
     };
 
     drawGrid();

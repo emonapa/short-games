@@ -9,7 +9,7 @@ EXPORTED_FUNCS_CORE = \
   '_free', '_malloc', \
   '_short_game_init', '_short_game_free', \
   '_game_new', '_game_from_game', '_game_from_games', \
-  '_game_zero', '_game_star', '_game_up', '_game_down', \
+  '_game_zero', '_game_one', '_game_star', '_game_up', '_game_down', \
   '_game_geq', '_game_canonicalize', '_game_add', '_game_negate', \
   '_cool_with_star', '_star_projection', \
   '_make_int', '_make_dyadic', '_make_nimber', \
