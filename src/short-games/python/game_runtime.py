@@ -536,6 +536,13 @@ class GameConvertRuntime(GameRuntime):
         self.lib.hash_raw_game_position.argtypes = [c_void_p, c_void_p, c_int]
         self.lib.hash_raw_game_position.restype = c_uint64
 
+        self.lib.get_independent_components.argtypes = [
+            c_void_p,
+            c_void_p,
+            POINTER(POINTER(c_void_p)),
+        ]
+        self.lib.get_independent_components.restype = c_int
+
         self.lib.position_cache_get.argtypes = [
             c_void_p,
             c_void_p,
@@ -644,6 +651,19 @@ class GameConvertRuntime(GameRuntime):
                 c_int(move),
             )
         )
+
+    def get_independent_components(self, raw_game, position):
+        out = POINTER(c_void_p)()
+
+        count = self.lib.get_independent_components(
+            self.raw_game_ptr(raw_game),
+            self.position_ptr(position),
+            byref(out),
+        )
+
+        if count == 0:
+            return [position]
+        return [out[i] for i in range(count)]
 
     def position_cache_lookup(self, raw_game, position) -> GamePtr | None:
         out = GamePtr()

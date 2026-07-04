@@ -12,7 +12,7 @@ def _options_list(value) -> list:
     if isinstance(value, GameSide):
         return value.to_list()
 
-    if isinstance(value, G):
+    if isinstance(value, Ga):
         return value.to_list()
 
     if isinstance(value, Iterable) and not isinstance(value, (Game, str, bytes)):
@@ -445,14 +445,13 @@ class Game:
 
 # Sada jmen metod, ktere lze prepisovat v podtride.
 _OVERRIDABLE_METHODS = frozenset({
-    "convert",
-    "convert_component",
     "num_moves",
     "can_left_move",
     "can_right_move",
     "do_move_left",
     "do_move_right",
     "hash_raw_game_position",
+    "get_independent_components",
 })
 
 
@@ -593,17 +592,18 @@ class GameConvert:
 
         total = Game.zero()
 
-        for component_position in self.independent_components(raw_game, position):
+        for component_position in self.get_independent_components(raw_game, position):
             component_value = self.convert_component(raw_game, component_position)
             total = total + component_value
 
         return total.canonical
 
+
     def convert_component(self, raw_game, position) -> Game:
         if self._use_c:
             return self._as_game(self._rt().convert_component(raw_game, position))
 
-        key = self.position_cache_key(raw_game, position)
+        key = (id(raw_game), self.hash_position_state(raw_game, position))
 
         if key in self._position_cache:
             return self._position_cache[key]
@@ -614,13 +614,11 @@ class GameConvert:
         for move in range(self.num_moves(raw_game, position)):
             if self.can_left_move(raw_game, position, move):
                 child_position = self.do_move_left(raw_game, position, move)
-                child_game = self.convert_component(raw_game, child_position)
-                left_options.append(child_game)
+                left_options.append(self.convert_component(raw_game, child_position))
 
             if self.can_right_move(raw_game, position, move):
                 child_position = self.do_move_right(raw_game, position, move)
-                child_game = self.convert_component(raw_game, child_position)
-                right_options.append(child_game)
+                right_options.append(self.convert_component(raw_game, child_position))
 
         result = Game.new(left_options, right_options).canonical
         self._position_cache[key] = result
@@ -628,45 +626,47 @@ class GameConvert:
         return result
 
     # ------------------------------------------------------------------
-    # Python cache helpers
+    # Internal Python cache hash helper
     # ------------------------------------------------------------------
+    def _u32(value: int) -> int:
+        return value & 0xFFFFFFFF
 
-    def independent_components(self, raw_game, position):
-        """
-        Python analogie C get_independent_components.
 
-        Defaultne hra nema zadny rozklad na komponenty.
-        Pokud tvoje hra komponenty ma, prepis tuto metodu.
-        """
-        return [position]
+    def _imul32(a: int, b: int) -> int:
+        return _u32(a * b)
 
-    def position_cache_key(self, raw_game, position):
-        """
-        Python analogie C position_cache_get/insert.
 
-        C verze hashuje pozici pres vsechny legalni tahy.
-        Tady delame podobnou vec, plus pridame id(raw_game), aby se nemichaly
-        pozice ruznych raw her ve stejnem solveru.
-        """
-        return (id(raw_game), self.hash_graph_state(raw_game, position))
+    def hash_position_state(self, raw_game, position) -> int:
+        total_hash = 2166136261
+        moves = self.num_moves(raw_game, position)
 
-    def hash_graph_state(self, raw_game, position) -> int:
-        total_hash = 0
+        total_hash = _imul32(total_hash ^ moves, 16777619)
 
-        for move in range(self.num_moves(raw_game, position)):
-            if (
-                self.can_left_move(raw_game, position, move)
-                or self.can_right_move(raw_game, position, move)
-            ):
-                total_hash ^= self.hash_raw_game_position(raw_game, position, move)
+        for move in range(moves):
+            can_left = self.can_left_move(raw_game, position, move)
+            can_right = self.can_right_move(raw_game, position, move)
 
-        return total_hash
+            if not can_left and not can_right:
+                continue
+
+            side_mask = (1 if can_left else 0) | (2 if can_right else 0)
+            move_hash = self.hash_raw_game_position(raw_game, position, move)
+
+            total_hash = _imul32(total_hash ^ _u32(move_hash), 16777619)
+            total_hash = _imul32(
+                total_hash ^ ((((move + 1) << 2) | side_mask) & 0xFFFFFFFF),
+                16777619,
+            )
+
+        return _u32(total_hash)
 
     # ------------------------------------------------------------------
-    # Primitive raw-game API
+    # Raw-game API.
     #
-    # Pokud use_c=True, tyto metody volaji C runtime.
-    # Pokud use_c=False, musi je prepsat podtrida.
+    # These methods correspond to convert_interface/raw_game.h.
+    # If use_c=True, they call the C runtime.
+    # If use_c=False, subclasses must implement all required methods.
+    # get_independent_components has a default implementation: [position].
     # ------------------------------------------------------------------
 
     def num_moves(self, raw_game, position = None) -> int:
@@ -706,3 +706,9 @@ class GameConvert:
         raise NotImplementedError(
             "hash_raw_game_position must be implemented for Python backend"
         )
+
+    def get_independent_components(self, raw_game, position):
+        if self._use_c:
+            return self._rt().get_independent_components(raw_game, position)
+
+        return [position]

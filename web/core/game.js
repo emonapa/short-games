@@ -329,6 +329,29 @@ class GameConvertRuntime extends GameRuntime {
     do_move_left(rawGamePtr, posPtr, move) { return this.wasm._do_move_left(rawGamePtr, posPtr, move); }
     do_move_right(rawGamePtr, posPtr, move) { return this.wasm._do_move_right(rawGamePtr, posPtr, move); }
     hash_raw_game_position(rawGamePtr, posPtr, move) { return this.wasm._hash_raw_game_position(rawGamePtr, posPtr, move); }
+    get_independent_components(rawGamePtr, posPtr) {
+        const outPtr = this.wasm._malloc(4);
+        this.wasm.setValue(outPtr, 0, "i32");
+
+        try {
+            const count = this.wasm._get_independent_components(rawGamePtr, posPtr, outPtr);
+            const arrayPtr = this.wasm.getValue(outPtr, "i32");
+
+            if (count === 0 || !arrayPtr) {
+                return [posPtr];
+            }
+
+            const components = [];
+
+            for (let i = 0; i < count; i++) {
+                components.push(this.wasm.getValue(arrayPtr + i * 4, "i32"));
+            }
+
+            return components;
+        } finally {
+            this.wasm._free(outPtr);
+        }
+    }
 }
 
 export class GameConvert {
@@ -389,6 +412,24 @@ export class GameConvert {
         return this._runtime;
     }
 
+    _hashPositionState(rawGame, position) {
+        let totalHash = 2166136261;
+        const moves = this.numMoves(rawGame, position);
+
+        totalHash = Math.imul(totalHash ^ moves, 16777619);
+        for (let move = 0; move < moves; move++) {
+            const canLeft = this.canLeftMove(rawGame, position, move);
+            const canRight = this.canRightMove(rawGame, position, move);
+            if (!canLeft && !canRight) continue;
+
+            const sideMask = (canLeft ? 1 : 0) | (canRight ? 2 : 0);
+            const moveHash = this.hashRawGamePosition(rawGame, position, move);
+            totalHash = Math.imul(totalHash ^ (moveHash >>> 0), 16777619);
+            totalHash = Math.imul(totalHash ^ (((move + 1) << 2) | sideMask), 16777619);
+        }
+        return totalHash >>> 0;
+    }
+    
     initialize() {
         this._positionCache.clear();
         if (this._runtime) this._runtime.initialize();
@@ -405,7 +446,7 @@ export class GameConvert {
         }
 
         let total = Game.zero();
-        for (const componentPosition of this.independentComponents(rawGame, position)) {
+        for (const componentPosition of this.getIndependentComponents(rawGame, position)) {
             const componentValue = this.convertComponent(rawGame, componentPosition);
             total = total.add(componentValue);
         }
@@ -418,7 +459,8 @@ export class GameConvert {
             return new Game(this._rt().convert_component(rawGame, position));
         }
 
-        const key = this.positionCacheKey(rawGame, position);
+        const key = `${rawGame}_${this._hashPositionState(rawGame, position)}`;
+        //const key = `${rawGame}_${position}`;
         if (this._positionCache.has(key)) {
             return this._positionCache.get(key);
         }
@@ -445,24 +487,17 @@ export class GameConvert {
         this._positionCache.set(key, result);
         return result;
     }
+    
 
-    independentComponents(rawGame, position) { return [position]; }
-
-    positionCacheKey(rawGame, position) {
-        return `${rawGame}_${this.hashGraphState(rawGame, position)}`;
-    }
-
-    hashGraphState(rawGame, position) {
-        let totalHash = 0;
-        const moves = this.numMoves(rawGame, position);
-        for (let move = 0; move < moves; move++) {
-            if (this.canLeftMove(rawGame, position, move) || this.canRightMove(rawGame, position, move)) {
-                totalHash ^= this.hashRawGamePosition(rawGame, position, move);
-            }
-        }
-        return totalHash;
-    }
-
+    // ------------------------------------------------------------------
+    // Raw-game API.
+    //
+    // These methods correspond to convert_interface/raw_game.h.
+    // If use_c=True, they call the C runtime.
+    // If use_c=False, subclasses must implement all required methods.
+    // get_independent_components has a default implementation: [position].
+    // ------------------------------------------------------------------
+    
     numMoves(rawGame, position = null) {
         if (this._useC) return this._rt().num_moves(rawGame, position);
         throw new Error("numMoves must be implemented for JS backend");
@@ -486,6 +521,12 @@ export class GameConvert {
     hashRawGamePosition(rawGame, position, move) {
         if (this._useC) return this._rt().hash_raw_game_position(rawGame, position, move);
         throw new Error("hashRawGamePosition must be implemented for JS backend");
+    }
+    getIndependentComponents(rawGame, position) {
+        if (this._useC) {
+            return this._rt().get_independent_components(rawGame, position);
+        }
+        return [position];
     }
 }
 

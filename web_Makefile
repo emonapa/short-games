@@ -23,7 +23,8 @@ EXPORTED_FUNCS_CORE = \
 EXPORTED_FUNCS_CONVERT = \
   '_convert', '_convert_component', '_convert_init', '_convert_free', \
   '_num_moves', '_can_left_move', '_can_right_move', \
-  '_do_move_left', '_do_move_right', '_hash_raw_game_position'
+  '_do_move_left', '_do_move_right', '_hash_raw_game_position', \
+  '_get_independent_components'
 
 # ----------------------------------------------------------------------
 # 3. ZDE PŘIDÁVEJ SPECIFICKÉ FUNKCE PRO JEDNOTLIVÉ HRY (VELKÝMI PÍSMENY)

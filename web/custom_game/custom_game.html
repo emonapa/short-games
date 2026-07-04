@@ -22,27 +22,25 @@
         
         <pre class="editor-frame language-javascript"><code id="code-editor" class="language-javascript">// Example: NIM with one heap
 class Nim extends GameConvert {
-    constructor() { super({ useC: false }); }
+    constructor() { super(); }
 
     // rawGame is the initial heap size, position is the current component state
-    independentComponents(rawGame, position) { return [position ?? rawGame]; }
     numMoves(rawGame, position) { return position; }
     
     // Both sides can remove the same number of tokens
-    canLeftMove(rawGame, position, move) { return true; }
-    canRightMove(rawGame, position, move) { return true; }
+    canLeftMove(rawGame, position, move) { return (position - (move + 1) >= 0); }
+    canRightMove(rawGame, position, move) { return this.canLeftMove(rawGame, position, move); }
     
     // move is the move index. Removed tokens = move + 1.
     doMoveLeft(rawGame, position, move) { return position - (move + 1); }
-    doMoveRight(rawGame, position, move) { return position - (move + 1); }
+    doMoveRight(rawGame, position, move) { return this.doMoveLeft(rawGame, position, move); }
     
-    positionCacheKey(rawGame, position) { return `${rawGame}:${position}`; }
     hashRawGamePosition(rawGame, position, move) { return (position << 8) ^ move; }
 }
 
 const nim = new Nim();
-// Convert a heap of size 4. The expected value is *4.
-return nim.convert(4, null);</code></pre>
+// Convert a heap of size 5. The expected value is *5.
+return nim.convert(null, 5);</code></pre>
         
         <br><br>
         <button id="btn-run">Run Code</button>

@@ -13,17 +13,30 @@ size_t pos_items_count = 0;
 static size_t pos_max_items = 0;
 static HashEntry *position_cache = NULL;
 
-static uint64_t hash_graph_state(RawGame_t raw_game, Position_t position) {
-    if (raw_game == NULL || position == NULL) error_exit(ERR_NULL_POINTER, "");
-    uint64_t total_hash = 0;
+uint64_t hash_position_state(RawGame_t raw_game, Position_t position) {
+    uint32_t total_hash = 2166136261u;
+    int moves = num_moves(raw_game, position);
 
-    for (int e = 0; e < num_moves(raw_game, position); e++) {
-        if (can_left_move(raw_game, position, e) ||
-            can_right_move(raw_game, position, e)) {
-                total_hash ^= hash_raw_game_position(raw_game, position, e);
+    total_hash = (uint32_t)((total_hash ^ (uint32_t)moves) * 16777619u);
+
+    for (int move = 0; move < moves; move++) {
+        int can_left = can_left_move(raw_game, position, move);
+        int can_right = can_right_move(raw_game, position, move);
+
+        if (!can_left && !can_right) {
+            continue;
         }
+
+        uint32_t side_mask = (can_left ? 1u : 0u) | (can_right ? 2u : 0u);
+        uint32_t move_hash = (uint32_t)hash_raw_game_position(raw_game, position, move);
+
+        total_hash = (uint32_t)((total_hash ^ move_hash) * 16777619u);
+        total_hash = (uint32_t)(
+            (total_hash ^ ((((uint32_t)move + 1u) << 2) | side_mask)) * 16777619u
+        );
     }
-    return total_hash;
+
+    return (uint64_t)total_hash;
 }
 
 void position_cache_init(size_t pos_size) {
@@ -47,7 +60,7 @@ void position_cache_free(void) {
 int position_cache_get(RawGame_t raw_game, Position_t position, Game **out_value) {
     if (raw_game == NULL || position == NULL || out_value == NULL) error_exit(ERR_NULL_POINTER, "");
 
-    uint64_t h = hash_graph_state(raw_game, position);
+    uint64_t h = hash_position_state(raw_game, position);
     size_t idx = (size_t)(h & pos_memo_mask);
 
     for (size_t i = 0; i < PROBE_LIMIT; ++i) {
@@ -76,7 +89,7 @@ void position_cache_insert(RawGame_t raw_game, Position_t position, Game *value)
         return;
     }
 
-    uint64_t h = hash_graph_state(raw_game, position);
+    uint64_t h = hash_position_state(raw_game, position);
     size_t idx = (size_t)(h & pos_memo_mask);
 
     for (size_t i = 0; i < PROBE_LIMIT; ++i) {
