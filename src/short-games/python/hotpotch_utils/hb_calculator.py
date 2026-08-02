@@ -82,158 +82,6 @@ def _raw_toggle() -> QCheckBox:
     cb.setStyleSheet("color: #888; font-size: 12px;")
     return cb
 
-
-class GameParser:
-    """
-    Parser for short-game expressions.
-
-    Supported examples:
-        0
-        1
-        -2
-        1/2
-        -3/4
-        *
-        *3
-        ↑
-        ↓
-        2↑
-        2^
-        3↓
-        3v
-        ↑*
-        ↓*
-        {0,* | 1}
-    """
-
-    def parse(self, text: str) -> Game:
-        t = text.strip()
-
-        if not t:
-            raise ValueError("Empty input")
-
-        return self._parse(t)
-
-    def _parse(self, s: str) -> Game:
-        s = s.strip()
-
-        if s.startswith("{") and s.endswith("}"):
-            inner = s[1:-1]
-            pipe = self._find_pipe(inner)
-
-            if pipe == -1:
-                raise ValueError(f"Missing '|' in: {s}")
-
-            left_str = inner[:pipe].strip()
-            right_str = inner[pipe + 1:].strip()
-
-            lefts = self._parse_list(left_str)
-            rights = self._parse_list(right_str)
-
-            return Game.new(lefts, rights)
-
-        if s == "*":
-            return Game.star()
-
-        if s.startswith("*") and len(s) > 1:
-            try:
-                n = int(s[1:])
-            except ValueError:
-                raise ValueError(f"Invalid nimber: '{s}'")
-
-            return Game.nimber(n)
-
-        s = s.replace("^", "↑").replace("v", "↓")
-
-        if s == "↑*":
-            return Game.up_star()
-
-        if s == "↓*":
-            return Game.down_star()
-
-        for arrow, maker in [
-            ("↑", Game.up),
-            ("↓", Game.down),
-        ]:
-            if arrow in s:
-                idx = s.index(arrow)
-                pre = s[:idx].strip()
-                suffix = s[idx + len(arrow):].strip()
-
-                try:
-                    mult = int(pre) if pre else 1
-                except ValueError:
-                    raise ValueError(f"Invalid arrow multiplier: '{pre}'")
-
-                if suffix == "*":
-                    return maker(mult) + Game.star()
-
-                if suffix:
-                    raise ValueError(f"Unexpected suffix after arrow: '{suffix}'")
-
-                return maker(mult)
-
-        if "/" in s:
-            parts = s.split("/")
-
-            if len(parts) == 2:
-                try:
-                    p = int(parts[0].strip())
-                    q = int(parts[1].strip())
-                except ValueError:
-                    raise ValueError(f"Can't parse a fraction: '{s}'")
-
-                return Game.dyadic(p, q)
-
-        try:
-            return Game.integer(int(s))
-        except ValueError:
-            pass
-
-        raise ValueError(f"Nelze parsovat: '{s}'")
-
-    def _parse_list(self, s: str) -> list[Game]:
-        s = s.strip()
-
-        if not s:
-            return []
-
-        return [self._parse(part) for part in self._split_top(s, ",")]
-
-    def _find_pipe(self, s: str) -> int:
-        depth = 0
-
-        for i, c in enumerate(s):
-            if c == "{":
-                depth += 1
-            elif c == "}":
-                depth -= 1
-            elif c == "|" and depth == 0:
-                return i
-
-        return -1
-
-    def _split_top(self, s: str, sep: str) -> List[str]:
-        parts = []
-        depth = 0
-        cur = []
-
-        for c in s:
-            if c == "{":
-                depth += 1
-            elif c == "}":
-                depth -= 1
-
-            if c == sep and depth == 0:
-                parts.append("".join(cur).strip())
-                cur = []
-            else:
-                cur.append(c)
-
-        parts.append("".join(cur).strip())
-        return parts
-
-
 class CalculatorPanel(QWidget):
     """Calculator panel shown at stack index 2."""
 
@@ -388,13 +236,9 @@ class CalculatorPanel(QWidget):
     def _str(self, game: Game, raw_cb: QCheckBox) -> str:
         return game.to_string(self._fmt(raw_cb))
 
-    def _parser(self) -> GameParser:
-        return GameParser()
-
     def _calc_unary(self):
         try:
-            parser = self._parser()
-            g = parser.parse(self.unary_input.text())
+            g = Game.from_string(self.unary_input.text())
 
             op_index = self.unary_op.currentIndex()
 
@@ -414,10 +258,8 @@ class CalculatorPanel(QWidget):
 
     def _calc_binary(self):
         try:
-            parser = self._parser()
-
-            a = parser.parse(self.bin_left.text())
-            b = parser.parse(self.bin_right.text())
+            a = Game.from_string(self.bin_left.text())
+            b = Game.from_string(self.bin_right.text())
             op = self.bin_op.currentText()
 
             if op == "+":
