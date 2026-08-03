@@ -298,6 +298,7 @@ Game* game_canonicalize_shallow(Game *G) {
     if (game_canon_cache_get(G, &cached)) return cached;
     cannon_count++;
 
+    // remove dominated and reversible moves
     return game_remove_dom_and_rev(G);
 }
 

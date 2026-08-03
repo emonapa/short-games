@@ -10,7 +10,7 @@ EXPORTED_FUNCS_CORE = \
   '_short_game_init', '_short_game_free', \
   '_game_new', '_game_from_game', '_game_from_games', \
   '_game_zero', '_game_one', '_game_star', '_game_up', '_game_down', \
-  '_game_geq', '_game_canonicalize', '_game_add', '_game_negate', \
+  '_game_geq', '_game_canonicalize', '_game_add', '_game_multiply', '_game_negate', \
   '_cool_with_star', '_star_projection', \
   '_make_int', '_make_dyadic', '_make_nimber', \
   '_make_up_multiple', '_make_down_multiple', \
@@ -44,11 +44,27 @@ LDFLAGS_CORE = \
 
 SRC_DIR = src
 SHORTS_DIR = $(SRC_DIR)/short-games/C
-CORE_SRCS = $(wildcard $(SHORTS_DIR)/core/*.c)
+CORE_DIR = $(SHORTS_DIR)/core
+PARSER_DIR = $(CORE_DIR)/parser
+
+# game_string.c in core is the original parser. The current implementation
+# lives in core/parser together with its lexer and semantic evaluator.
+CORE_SRCS = $(filter-out $(CORE_DIR)/game_string.c,$(wildcard $(CORE_DIR)/*.c))
+PARSER_SRCS = \
+  $(PARSER_DIR)/ast.c \
+  $(PARSER_DIR)/dyadic_value.c \
+  $(PARSER_DIR)/game_format.c \
+  $(PARSER_DIR)/game_string.c \
+  $(PARSER_DIR)/language_error.c \
+  $(PARSER_DIR)/lexer.c \
+  $(PARSER_DIR)/parser.c \
+  $(PARSER_DIR)/semantic.c \
+  $(PARSER_DIR)/token.c
+SHORT_CORE_SRCS = $(CORE_SRCS) $(PARSER_SRCS)
 CONVERT_SRCS = $(wildcard $(SHORTS_DIR)/convert/*.c)
 GAMES_SRC_DIR = $(SHORTS_DIR)/games
 
-INCLUDES = -I$(SHORTS_DIR) -I$(SHORTS_DIR)/shared -I$(SHORTS_DIR)/convert/convert_interface -I$(GAMES_SRC_DIR)
+INCLUDES = -I$(SHORTS_DIR) -I$(CORE_DIR) -I$(PARSER_DIR) -I$(SHORTS_DIR)/shared -I$(SHORTS_DIR)/convert/convert_interface -I$(GAMES_SRC_DIR)
 
 GAME_DIRS = $(wildcard $(GAMES_SRC_DIR)/*)
 GAME_NAMES = $(notdir $(GAME_DIRS))
@@ -74,7 +90,7 @@ UP_NAME_$(1) := $$(call TO_UPPER,$(1))
 # Makro magie: Poskládá string [CORE] + [CONVERT] a pokud je EXPORTED_FUNCS_<HRA> definována, přidá ", [HRA]"
 GAME_EXPORTS_$(1) = $(EXPORTED_FUNCS_CORE)$(comma) $(EXPORTED_FUNCS_CONVERT)$$(if $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))),$$(comma) $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))))
 
-web/games/$(1)/lib$(1).js: $(CORE_SRCS) $(CONVERT_SRCS) $$(wildcard $(GAMES_SRC_DIR)/$(1)/*.c)
+web/games/$(1)/lib$(1).js: $(SHORT_CORE_SRCS) $(CONVERT_SRCS) $$(wildcard $(GAMES_SRC_DIR)/$(1)/*.c)
 	@echo "Kompiluji hru: $(1)..."
 	@mkdir -p web/games/$(1)
 	$$(CC) $$(CFLAGS) $$(INCLUDES) $$^ -o $$@ \
@@ -89,7 +105,7 @@ endef
 $(foreach game,$(GAME_NAMES),$(eval $(call GAME_TEMPLATE,$(game))))
 
 # Pravidlo pro čisté jádro (zůstává izolovano)
-$(CORE_TARGET): $(CORE_SRCS)
+$(CORE_TARGET): $(SHORT_CORE_SRCS)
 	@echo "Kompiluji ciste jadro (core)..."
 	@mkdir -p web/core
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS_CORE)

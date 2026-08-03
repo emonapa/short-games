@@ -1,0 +1,42 @@
+.calculator {
+    max-width: 760px;
+}
+
+.syntax {
+    line-height: 1.6;
+}
+
+.calculator label {
+    display: block;
+    margin: 24px 0 8px;
+    color: var(--text);
+    font-weight: bold;
+}
+
+#expression {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #777;
+    border-radius: 0;
+    background: #202020;
+    color: var(--text);
+    font: 1.1rem "Courier New", Courier, monospace;
+    box-shadow: inset 1px 1px 0 #111;
+}
+
+#expression:focus {
+    border-color: #72b772;
+    outline: 1px solid #72b772;
+}
+
+#expression:disabled {
+    color: var(--muted);
+    cursor: wait;
+}
+
+#error {
+    min-height: 1.5em;
+    margin: 10px 0 0;
+    color: #ef9a9a;
+}

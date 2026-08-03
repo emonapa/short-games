@@ -1,3 +1,12 @@
+/*
+ * Final bachelors thesis
+ * Title cz: Algoritmy strojového hraní Hotpotche s využitím surreálních čísel
+ * Title en: Algorithms for Automated Play of Hotpotch Using Surreal Numbers
+ *
+ * Faculty of Information Technology Brno University of Technology
+ * Author: Václav Matyáš (xmatyav00)
+ */
+
 #ifndef GAME_OPERATIONS_CACHE_H
 #define GAME_OPERATIONS_CACHE_H
 

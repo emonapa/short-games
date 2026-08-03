@@ -8,6 +8,7 @@
 #include "../core/singletons.h"
 #include "../core/game_darray.h"
 #include "../core/short_game.h"
+#include "../core/parser/game_format.h"
 
 #include "position_cache.h"
 #include "convert_interface/raw_game.h"

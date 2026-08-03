@@ -1,10 +1,3 @@
-from game import Game, Ga
+from game import Game
 
-try:
-    K = Game.from_string("{**|0}")
-except ValueError as e:
-    print(e)
-    exit(1)
-
-K += Game.one()
-print(K)
+print(Game.from_string("1 + {0|1/2}"))

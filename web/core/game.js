@@ -64,10 +64,15 @@ class GameRuntime {
     }
 
     game_from_string(text) {
-        if (!text) throw new Error("Input string is None");
+        if (typeof text !== "string") throw new TypeError("Input must be a string");
         const ptr = this.wasm.stringToNewUTF8(text);
-        const resultPtr = this.wasm._game_from_string(ptr);
-        this.wasm._free(ptr); 
+        let resultPtr;
+
+        try {
+            resultPtr = this.wasm._game_from_string(ptr);
+        } finally {
+            this.wasm._free(ptr);
+        }
 
         if (!resultPtr) {
             const errPtr = this.wasm._game_string_last_error();
