@@ -16,6 +16,13 @@
 
 #define MAX_EXACT_EXPONENT 62u
 
+/*
+ * Keep exact intermediate arithmetic where the compiler supports it, while
+ * retaining a portable, checked 64-bit fallback. This mirrors the precision
+ * selection used by dyadics/raw_game.h without exposing a compiler extension
+ * in the parser's public API.
+ */
+
 typedef struct DyadicValue {
     int64_t numerator;
     unsigned exponent;
@@ -39,48 +46,106 @@ static void dyadic_normalize(DyadicValue *value) {
     }
 }
 
-static int dyadic_compare(DyadicValue left, DyadicValue right) {
+static DyadicValueStatus scale_numerator(int64_t numerator,
+                                         unsigned shift,
+                                         dyadic_precision_t *out) {
+    if (shift >= DYADIC_PRECISION_BITS - 1u) {
+        if (numerator == 0) {
+            *out = 0;
+            return DYADIC_VALUE_OK;
+        }
+        return DYADIC_VALUE_OVERFLOW;
+    }
+
+    dyadic_precision_t factor = (dyadic_precision_t)BIT(shift);
+    dyadic_precision_t value = (dyadic_precision_t)numerator;
+    if (value > DYADIC_PRECISION_MAX / factor ||
+        value < DYADIC_PRECISION_MIN / factor) {
+        return DYADIC_VALUE_OVERFLOW;
+    }
+
+    *out = value * factor;
+    return DYADIC_VALUE_OK;
+}
+
+static DyadicValueStatus dyadic_compare(DyadicValue left,
+                                        DyadicValue right,
+                                        int *out_comparison) {
     unsigned exponent = left.exponent > right.exponent
                       ? left.exponent
                       : right.exponent;
-    __int128 left_scaled = (__int128)left.numerator *
-                           ((__int128)1 << (exponent - left.exponent));
-    __int128 right_scaled = (__int128)right.numerator *
-                            ((__int128)1 << (exponent - right.exponent));
-    return (left_scaled > right_scaled) - (left_scaled < right_scaled);
+    dyadic_precision_t left_scaled;
+    dyadic_precision_t right_scaled;
+    DyadicValueStatus status = scale_numerator(
+        left.numerator, exponent - left.exponent, &left_scaled
+    );
+    if (status != DYADIC_VALUE_OK) return status;
+
+    status = scale_numerator(
+        right.numerator, exponent - right.exponent, &right_scaled
+    );
+    if (status != DYADIC_VALUE_OK) return status;
+
+    *out_comparison = (left_scaled > right_scaled) -
+                      (left_scaled < right_scaled);
+    return DYADIC_VALUE_OK;
 }
 
-static __int128 floor_scaled(DyadicValue value, unsigned exponent) {
+static DyadicValueStatus floor_scaled(DyadicValue value,
+                                      unsigned exponent,
+                                      dyadic_precision_t *out) {
     if (exponent >= value.exponent) {
-        return (__int128)value.numerator *
-               ((__int128)1 << (exponent - value.exponent));
+        return scale_numerator(
+            value.numerator, exponent - value.exponent, out
+        );
     }
 
-    __int128 divisor = (__int128)1 << (value.exponent - exponent);
-    __int128 quotient = (__int128)value.numerator / divisor;
-    __int128 remainder = (__int128)value.numerator % divisor;
+    unsigned shift = value.exponent - exponent;
+    if (shift >= DYADIC_PRECISION_BITS - 1u) {
+        return DYADIC_VALUE_OVERFLOW;
+    }
+
+    dyadic_precision_t divisor = (dyadic_precision_t)BIT(shift);
+    dyadic_precision_t quotient = (dyadic_precision_t)value.numerator / divisor;
+    dyadic_precision_t remainder = (dyadic_precision_t)value.numerator % divisor;
     if (remainder != 0 && value.numerator < 0) quotient--;
-    return quotient;
+    *out = quotient;
+    return DYADIC_VALUE_OK;
 }
 
-static __int128 ceil_scaled(DyadicValue value, unsigned exponent) {
+static DyadicValueStatus ceil_scaled(DyadicValue value,
+                                     unsigned exponent,
+                                     dyadic_precision_t *out) {
     if (exponent >= value.exponent) {
-        return (__int128)value.numerator *
-               ((__int128)1 << (exponent - value.exponent));
+        return scale_numerator(
+            value.numerator, exponent - value.exponent, out
+        );
     }
 
-    __int128 divisor = (__int128)1 << (value.exponent - exponent);
-    __int128 quotient = (__int128)value.numerator / divisor;
-    __int128 remainder = (__int128)value.numerator % divisor;
+    unsigned shift = value.exponent - exponent;
+    if (shift >= DYADIC_PRECISION_BITS - 1u) {
+        return DYADIC_VALUE_OVERFLOW;
+    }
+
+    dyadic_precision_t divisor = (dyadic_precision_t)BIT(shift);
+    dyadic_precision_t quotient = (dyadic_precision_t)value.numerator / divisor;
+    dyadic_precision_t remainder = (dyadic_precision_t)value.numerator % divisor;
     if (remainder != 0 && value.numerator > 0) quotient++;
-    return quotient;
+    *out = quotient;
+    return DYADIC_VALUE_OK;
 }
 
 static DyadicValueStatus simplest_above(DyadicValue lower,
                                         DyadicValue *out) {
-    __int128 integer = lower.exponent == 0
-                     ? (__int128)lower.numerator + 1
-                     : ceil_scaled(lower, 0);
+    dyadic_precision_t integer;
+    if (lower.exponent == 0) {
+        if (lower.numerator == INT64_MAX) return DYADIC_VALUE_OVERFLOW;
+        integer = (dyadic_precision_t)lower.numerator + 1;
+    } else {
+        DyadicValueStatus status = ceil_scaled(lower, 0, &integer);
+        if (status != DYADIC_VALUE_OK) return status;
+    }
+
     if (integer < INT64_MIN || integer > INT64_MAX) {
         return DYADIC_VALUE_OVERFLOW;
     }
@@ -91,9 +156,15 @@ static DyadicValueStatus simplest_above(DyadicValue lower,
 
 static DyadicValueStatus simplest_below(DyadicValue upper,
                                         DyadicValue *out) {
-    __int128 integer = upper.exponent == 0
-                     ? (__int128)upper.numerator - 1
-                     : floor_scaled(upper, 0);
+    dyadic_precision_t integer;
+    if (upper.exponent == 0) {
+        if (upper.numerator == INT64_MIN) return DYADIC_VALUE_OVERFLOW;
+        integer = (dyadic_precision_t)upper.numerator - 1;
+    } else {
+        DyadicValueStatus status = floor_scaled(upper, 0, &integer);
+        if (status != DYADIC_VALUE_OK) return status;
+    }
+
     if (integer < INT64_MIN || integer > INT64_MAX) {
         return DYADIC_VALUE_OVERFLOW;
     }
@@ -105,11 +176,25 @@ static DyadicValueStatus simplest_below(DyadicValue upper,
 static DyadicValueStatus simplest_between(DyadicValue lower,
                                           DyadicValue upper,
                                           DyadicValue *out) {
-    if (dyadic_compare(lower, upper) >= 0) return DYADIC_VALUE_NOT_NUMBER;
+    int comparison;
+    DyadicValueStatus status = dyadic_compare(lower, upper, &comparison);
+    if (status != DYADIC_VALUE_OK) return status;
+    if (comparison >= 0) return DYADIC_VALUE_NOT_NUMBER;
 
     for (unsigned exponent = 0; exponent <= MAX_EXACT_EXPONENT; exponent++) {
-        __int128 first = floor_scaled(lower, exponent) + 1;
-        __int128 last = ceil_scaled(upper, exponent) - 1;
+        dyadic_precision_t lower_floor;
+        dyadic_precision_t upper_ceil;
+        status = floor_scaled(lower, exponent, &lower_floor);
+        if (status != DYADIC_VALUE_OK) return status;
+        status = ceil_scaled(upper, exponent, &upper_ceil);
+        if (status != DYADIC_VALUE_OK) return status;
+        if (lower_floor == DYADIC_PRECISION_MAX ||
+            upper_ceil == DYADIC_PRECISION_MIN) {
+            return DYADIC_VALUE_OVERFLOW;
+        }
+
+        dyadic_precision_t first = lower_floor + 1;
+        dyadic_precision_t last = upper_ceil - 1;
         if (first > last) continue;
         if (first < INT64_MIN || first > INT64_MAX) {
             return DYADIC_VALUE_OVERFLOW;
@@ -142,14 +227,28 @@ static DyadicValueStatus dyadic_from_game(Game *game, DyadicValue *out) {
         DyadicValue option;
         DyadicValueStatus status = dyadic_from_game(game->left[i], &option);
         if (status != DYADIC_VALUE_OK) return status;
-        if (i == 0 || dyadic_compare(option, left_max) > 0) left_max = option;
+        if (i == 0) {
+            left_max = option;
+        } else {
+            int comparison;
+            status = dyadic_compare(option, left_max, &comparison);
+            if (status != DYADIC_VALUE_OK) return status;
+            if (comparison > 0) left_max = option;
+        }
     }
 
     for (size_t i = 0; i < right_count; i++) {
         DyadicValue option;
         DyadicValueStatus status = dyadic_from_game(game->right[i], &option);
         if (status != DYADIC_VALUE_OK) return status;
-        if (i == 0 || dyadic_compare(option, right_min) < 0) right_min = option;
+        if (i == 0) {
+            right_min = option;
+        } else {
+            int comparison;
+            status = dyadic_compare(option, right_min, &comparison);
+            if (status != DYADIC_VALUE_OK) return status;
+            if (comparison < 0) right_min = option;
+        }
     }
 
     if (left_count == 0) return simplest_below(right_min, out);
@@ -249,7 +348,7 @@ static DyadicDivisionStatus dyadic_to_make_arguments(DyadicValue value,
     }
 
     *out_numerator = (int)value.numerator;
-    *out_denominator = (int)(1u << value.exponent);
+    *out_denominator = (int)BIT(value.exponent);
     return DYADIC_DIVISION_OK;
 }
 

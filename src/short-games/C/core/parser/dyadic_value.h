@@ -12,6 +12,23 @@
 
 #include "../short_game.h"
 
+#ifdef __SIZEOF_INT128__
+    typedef __int128 dyadic_precision_t;
+    typedef unsigned __int128 dyadic_unsigned_precision_t;
+#else
+    typedef int64_t dyadic_precision_t;
+    typedef uint64_t dyadic_unsigned_precision_t;
+#endif
+
+#define DYADIC_PRECISION_BITS \
+    ((unsigned)(sizeof(dyadic_precision_t) * CHAR_BIT))
+#define BIT(exponent) \
+    (((dyadic_unsigned_precision_t)1) << (exponent))
+#define DYADIC_PRECISION_MAX \
+    ((dyadic_precision_t)(BIT(DYADIC_PRECISION_BITS - 1u) - 1u))
+#define DYADIC_PRECISION_MIN (-DYADIC_PRECISION_MAX - 1)
+
+
 typedef enum DyadicDivisionStatus {
     DYADIC_DIVISION_OK = 0,
     DYADIC_DIVISION_NOT_NUMBERS,

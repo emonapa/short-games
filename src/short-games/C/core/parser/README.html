@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>README.html</title>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+
+</head>
+
+<body>
+
+<h1 id="ll1-parser-and-evaluator-for-short-games">LL(1) parser and
+evaluator for short games</h1>
+<p>The implementation is separated into three phases:</p>
+<ol type="1">
+<li><code>lexer.c</code> - lexical analysis</li>
+<li><code>parser.c</code> - recursive-descent LL(1) parser producing a
+simple AST</li>
+<li><code>semantic.c</code> - semantic validation and evaluation to
+<code>Game *</code></li>
+</ol>
+<p><code>game_string.c</code> is the public facade that runs all three
+phases. Text output is kept beside the parser in
+<code>game_format.c</code>, rather than in the mathematical core.</p>
+<h2 id="files">Files</h2>
+<ul>
+<li><code>language_error.h/.c</code> - non-fatal error value with source
+position</li>
+<li><code>token.h/.c</code> - token definitions</li>
+<li><code>lexer.h/.c</code> - UTF-8 aware lexer</li>
+<li><code>ast.h/.c</code> - generic AST containing only
+<code>text</code> and dynamic <code>children</code></li>
+<li><code>parser.h/.c</code> - LL(1) recursive-descent parser</li>
+<li><code>semantic.h/.c</code> - semantic checks and evaluation</li>
+<li><code>dyadic_value.h/.c</code> - exact numeric-game extraction and
+dyadic division</li>
+<li><code>game_format.h/.c</code> - raw and symbolic <code>Game *</code>
+formatting</li>
+<li><code>game_string.h/.c</code> - <code>game_from_string()</code>
+public API</li>
+<li><code>example_ast.c</code> - parser-only example</li>
+<li><code>example_evaluation.c</code> - example using the full game
+project</li>
+<li><code>test_parser.c</code> - lexer, parser, evaluator and formatter
+regression tests</li>
+</ul>
+<h2 id="ast-representation">AST representation</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> AstNode <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> <span class="op">*</span>text<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> AstNode <span class="op">**</span>children<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> AstNode<span class="op">;</span></span></code></pre></div>
+<p>The children array uses the project's <code>darray.h</code> stretchy
+buffer.</p>
+<p>Normalized nodes:</p>
+<ul>
+<li>leaf: the original literal, for example <code>"3"</code>,
+<code>"*2"</code>, <code>"↑*"</code></li>
+<li>unary operator: <code>"+"</code> or <code>"-"</code> with one
+child</li>
+<li>binary operator: <code>"+"</code>, <code>"-"</code>,
+<code>"*"</code>, <code>"/"</code> with two children</li>
+<li>function: function name with its arguments as children</li>
+<li>game constructor: <code>"{}"</code> with <code>"left"</code> and
+<code>"right"</code> list children</li>
+<li>parentheses do not produce an AST node</li>
+</ul>
+<p>For example:</p>
+<pre class="text"><code>{0, *2 | ↑*} + 2 * (3 - 1)</code></pre>
+<p>produces:</p>
+<pre class="text"><code>+
+  {}
+    left
+      0
+      *2
+    right
+      ↑*
+  *
+    2
+    -
+      3
+      1</code></pre>
+<h2 id="lexical-forms">Lexical forms</h2>
+<p>The supplied grammar is supported directly:</p>
+<ul>
+<li>integers: <code>0</code>, <code>1</code>, <code>42</code></li>
+<li>star: <code>*</code></li>
+<li>nimbers: <code>*0</code>, <code>*1</code>, <code>*2</code>, ...</li>
+<li>arrows: <code>^</code>, <code>v</code>, <code>↑</code>,
+<code>↓</code></li>
+<li>arrow plus star: <code>^*</code>, <code>v*</code>, <code>↑*</code>,
+<code>↓*</code></li>
+<li>number plus star: <code>2*</code>, interpreted as
+<code>2 + *</code></li>
+<li>functions: ASCII identifiers followed by <code>(</code></li>
+</ul>
+<p>The existing project notation is also supported:</p>
+<ul>
+<li>arrow multiples: <code>2^</code>, <code>2v</code>, <code>2↑</code>,
+<code>2↓</code></li>
+<li>arrow multiples plus star: <code>2^*</code>, <code>2v*</code>,
+<code>2↑*</code>, <code>2↓*</code></li>
+</ul>
+<p><code>*</code> is context-sensitive at the lexical boundary:</p>
+<ul>
+<li>where a primary is expected, <code>*2</code> is a nimber and
+<code>*</code> is the star game</li>
+<li>after a completed primary, <code>*</code> is multiplication</li>
+</ul>
+<p>Therefore <code>2*3</code> is tokenized as <code>2</code>,
+multiplication, <code>3</code>.</p>
+<h2 id="built-in-functions">Built-in functions</h2>
+<p>All currently implemented functions take exactly one argument:</p>
+<ul>
+<li><code>canonical(E)</code> or <code>canonicalize(E)</code></li>
+<li><code>cool(E)</code></li>
+<li><code>projection(E)</code> or <code>star_projection(E)</code></li>
+</ul>
+<p>The grammar permits any number of arguments syntactically. Semantic
+analysis rejects an unsupported function or incorrect arity.</p>
+<h2 id="operator-semantics">Operator semantics</h2>
+<ul>
+<li><code>G + H</code>: <code>game_add(G, H)</code></li>
+<li><code>G - H</code>: <code>game_add(G, game_negate(H))</code></li>
+<li><code>-G</code>: <code>game_negate(G)</code></li>
+<li><code>G * H</code>: core <code>game_multiply()</code> Conway
+product, memoized for one call</li>
+<li><code>G / H</code>: only dyadic surreal numbers are accepted, and
+the reduced result must again have a power-of-two denominator</li>
+</ul>
+<p>General division of arbitrary partizan games is intentionally
+rejected.</p>
+<p>Exact division uses the normalized <code>n / 2^k</code>
+representation and the "simplest number between options" construction
+already used by the dyadics solver. The parser keeps only the
+error-reporting adapter; numeric-game recognition is isolated in
+<code>dyadic_value.c</code>.</p>
+<h2 id="integration">Integration</h2>
+<p>Put the new files in the parser directory. Compile with include paths
+pointing to the directories containing:</p>
+<ul>
+<li><code>darray.h</code></li>
+<li><code>short_game.h</code></li>
+<li><code>singletons.h</code></li>
+<li><code>game_darray.h</code></li>
+</ul>
+<p>Example parser-only compilation:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">gcc</span> <span class="at">-std</span><span class="op">=</span>c99 <span class="at">-Wall</span> <span class="at">-Wextra</span> <span class="at">-O2</span> <span class="dt">\</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-Iparser</span> <span class="at">-Ishared</span> <span class="dt">\</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    parser/language_error.c <span class="dt">\</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    parser/token.c <span class="dt">\</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    parser/lexer.c <span class="dt">\</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    parser/ast.c <span class="dt">\</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    parser/parser.c <span class="dt">\</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    parser/example_ast.c <span class="dt">\</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-o</span> example_ast</span></code></pre></div>
+<p>For the full evaluator, add:</p>
+<pre class="text"><code>parser/semantic.c
+parser/dyadic_value.c
+parser/game_format.c
+parser/game_string.c</code></pre>
+<p>to the target that already links the game implementation.</p>
+<h2 id="public-use">Public use</h2>
+<div class="sourceCode" id="cb6"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Game <span class="op">*</span>game <span class="op">=</span> game_from_string<span class="op">(</span><span class="st">&quot;{0 | 1} / 2&quot;</span><span class="op">);</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>game <span class="op">==</span> NULL<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    fprintf<span class="op">(</span>stderr<span class="op">,</span> <span class="st">&quot;</span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> game_string_last_error<span class="op">());</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The resulting value is <code>1/4</code>.</p>
+<h2 id="tested-examples">Tested examples</h2>
+<p>Using the supplied game implementation, these expressions evaluated
+as:</p>
+<pre class="text"><code>{|}             -&gt; 0
+1 + 1           -&gt; 2
+{0 | 1}         -&gt; 0.5
+2 * {0 | 1}     -&gt; 1
+{0 | 1} / 2     -&gt; 0.25
+*2 + *2         -&gt; 0
+2↑ + ↓          -&gt; ↑</code></pre>
+
+</body>
+</html>

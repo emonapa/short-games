@@ -137,7 +137,7 @@ static LiteralInfo classify_literal(const char *text) {
 static bool is_known_function(const char *name) {
     return strcmp(name, "canonical") == 0 ||
            strcmp(name, "canonicalize") == 0 ||
-           strcmp(name, "cool") == 0 ||
+           strcmp(name, "cool_with_star") == 0 ||
            strcmp(name, "projection") == 0 ||
            strcmp(name, "star_projection") == 0;
 }
@@ -347,7 +347,7 @@ static Game *evaluate_function(const AstNode *node, LanguageError *error) {
         strcmp(node->text, "canonicalize") == 0) {
         return game_canonicalize(argument);
     }
-    if (strcmp(node->text, "cool") == 0) return cool_with_star(argument);
+    if (strcmp(node->text, "cool_with_star") == 0) return cool_with_star(argument);
     if (strcmp(node->text, "projection") == 0 ||
         strcmp(node->text, "star_projection") == 0) {
         return star_projection(argument);
