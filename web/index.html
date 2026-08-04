@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Short Games - Combinatorial Game Theory</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon" sizes="32x32">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="home-page">
     <div class="navbar">
-        <a href="/" class="logo">[ SHORT GAMES ]</a>
+        <a href="index.html" class="logo">[ SHORT GAMES ]</a>
         <a href="games/hotpotch/index.html">Hotpotch</a>
         <a href="games/domineering/index.html">Domineering</a>
         <a href="games/toads_and_frogs/index.html">Toads & Frogs</a>
@@ -18,28 +19,31 @@
 
     <div class="container">
         <h1>Combinatorial Game Theory (CGT)</h1>
-        <p>This is a web-based demo of my final bachelor thesis. The main subject of the work was a C library compiled for this demo using webAssembly that calculates short games. The term short game is a less well-known term and more people know these numbers under the term "surreal numbers", although it is technically incorrect in this context.</p>
+        <p>This is a web-based demo of my final bachelor's thesis. The main subject of the thesis was a C library that evaluates short games and is compiled to WebAssembly for this demo. The term "short game" is not widely known and more people know these values as "surreal numbers", although that is technically incorrect in this context.</p>
         
         <h2>Available Modules</h2>
         <ul>
-            <li><strong>Hotpotch:</strong> A colored-edge game with blue, red, green edges and gravity.</li>
+            <li><strong>Hotpotch:</strong> A colored-edge game with blue, red, and green edges and gravity.</li>
             <li><strong>Domineering:</strong> Vertical and horizontal domino placement.</li>
             <li><strong>Toads & Frogs:</strong> Toads move right and frogs move left.</li>
             <li><strong>Calculator:</strong> Parse and evaluate a short-game expression.</li>
-            <li><strong>JS Sandbox:</strong> Write custom game rules in JavaScript using the JavaScript interface</li>
+            <li><strong>JS Sandbox:</strong> Write custom game rules in JavaScript using the JavaScript interface.</li>
         </ul>
 
         <p>
-        The project includes, among other things, Python and JavaScript wrappers for the C library. I found the Python library more interesting to work on, so it is more fully developed; the relevant files—`game.py` and `game_runtime.py`—can be found at <github link>.
+        The project includes, among other things, Python and JavaScript wrappers for the C library. I found the Python wrapper more interesting to work on, so it is more fully developed. The relevant files, <a href="https://github.com/emonapa/BAKALARKA/blob/main/src/short-games/python/game.py">game.py</a> and <a href="https://github.com/emonapa/BAKALARKA/blob/main/src/short-games/python/game_runtime.py">game_runtime.py</a>, can be found on GitHub.
         </p>
 
-        <h2>You can learn more from my theises</h2>
+        <h2>You can learn more from my thesis</h2>
+        <a class="thesis-preview" href="https://github.com/emonapa/BAKALARKA/blob/main/theises-en.pdf">
+          <img src="theises-en-preview.png" alt="Preview of the English thesis title page">
+        </a>
         <p>
-          <!-- Obrazek pdfka a link na nej na githubu https://github.com/emonapa/short-games/theises-en.pdf -->
+          You can read the thesis in <a href="https://github.com/emonapa/BAKALARKA/blob/main/theises-en.pdf">English</a> or <a href="https://github.com/emonapa/BAKALARKA/blob/main/theises-cz.pdf">Czech</a>.
         </p>
 
         <p>
-         Please note that I am not a web developer, so the quality of this site may not be top-notch; the primary goal was simply to showcase my thesis.
+         Please note that I am not a web developer, so the quality of this site may not be top-notch. The primary goal was simply to showcase my thesis. Also note that the english version of my theises was automatically translated so you may find some errors.
         </p>
         
     </div>

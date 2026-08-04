@@ -1,7 +1,3 @@
-.calculator {
-    max-width: 760px;
-}
-
 .syntax {
     line-height: 1.6;
 }
@@ -21,7 +17,7 @@
     border-radius: 0;
     background: #202020;
     color: var(--text);
-    font: 1.1rem "Courier New", Courier, monospace;
+    font: 1.25rem "Courier New", Courier, monospace;
     box-shadow: inset 1px 1px 0 #111;
 }
 

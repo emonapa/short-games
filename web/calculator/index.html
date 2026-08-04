@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Short Game Calculator</title>
+    <link rel="icon" href="../favicon.ico" type="image/x-icon" sizes="32x32">
     <link rel="stylesheet" href="../style.css">
     <link rel="stylesheet" href="calculator.css">
 </head>
-<body>
+<body class="board-page">
     <div class="navbar">
-        <a href="/" class="logo">[ SHORT GAMES ]</a>
+        <a href="../index.html" class="logo">[ SHORT GAMES ]</a>
         <a href="../games/hotpotch/">Hotpotch</a>
         <a href="../games/domineering/">Domineering</a>
         <a href="../games/toads_and_frogs/">Toads &amp; Frogs</a>
@@ -23,7 +24,7 @@
             <p>Enter integers, dyadic fractions, stars (<code>*</code>, <code>*2</code>), arrows (<code>^</code>, <code>v</code>, <code>↑</code>, <code>↓</code>) or a game such as <code>{0, * | 1}</code>. You can use parentheses, <code>+</code>, <code>-</code>, <code>*</code>, <code>/</code> and the functions <code>canonical(...)</code>, <code>cool_with_star(...)</code> and <code>projection(...)</code>. Press Enter to calculate.</p>
         </section>
         <label for="expression">Game expression</label>
-        <input id="expression" type="text" autocomplete="off" spellcheck="false" placeholder="For example: 1 + {0 | 1/2}" aria-describedby="error" autofocus>
+        <input id="expression" type="text" autocomplete="off" spellcheck="false" placeholder="For example: 1 + {0 | 1/({0|}+1)}" aria-describedby="error" autofocus>
         <p id="error" role="alert" aria-live="polite"></p>
     </main>
     <script type="module" src="app.js"></script>

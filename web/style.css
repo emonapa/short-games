@@ -68,12 +68,34 @@ body {
 }
 
 .container {
-    max-width: 1000px;
+    width: calc(100% - 56px);
+    max-width: 1180px;
     margin: 30px auto;
     background: var(--panel);
     padding: 20px 30px;
+    box-sizing: border-box;
     border: 1px solid var(--border);
     box-shadow: 4px 4px 0px #111;
+}
+
+.home-page .container p,
+.home-page .container li {
+    font-size: 1.08rem;
+    line-height: 1.5;
+}
+
+.thesis-preview {
+    display: block;
+    width: min(100%, 320px);
+    margin: 20px auto;
+}
+
+.thesis-preview img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    box-shadow: 4px 4px 0 #111;
 }
 
 h1, h2 { border-bottom: 1px solid var(--border); padding-bottom: 5px; }
@@ -151,7 +173,6 @@ input[type="number"], textarea {
 
 
 .board-page .container {
-    max-width: min(1180px, calc(100vw - 56px));
     min-height: calc(100vh - 150px);
     font-size: 1.25rem;
 }
