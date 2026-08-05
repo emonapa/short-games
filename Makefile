@@ -110,10 +110,21 @@ GAME_INCLUDE := \
 	-I$(SHORTS_CONVERT_INTERFACE_DIR)
 
 # -----------------------------------------------------------------------------
+# Python package
+# -----------------------------------------------------------------------------
+
+PYTHON_SOURCE_DIR := $(SRC_DIR)/short-games/python
+PYTHON_PACKAGE_NAME := shortg
+PYTHON_PACKAGE_TEMPLATE_DIR := packaging/$(PYTHON_PACKAGE_NAME)
+PYTHON_PACKAGE_DIR := $(PYTHON_PACKAGE_NAME)
+PYTHON_PACKAGE_MODULE_DIR := \
+	$(PYTHON_PACKAGE_DIR)/src/$(PYTHON_PACKAGE_NAME)
+
+# -----------------------------------------------------------------------------
 # Public targets
 # -----------------------------------------------------------------------------
 
-.PHONY: all lib dyadics core games parser-test parser-example clean tags print
+.PHONY: all lib dyadics core games python-lib parser-test parser-example clean tags print
 
 all: lib
 
@@ -124,6 +135,15 @@ dyadics: $(DYADICS_LIB)
 core: $(SHORTS_CORE_LIB)
 
 games: $(GAME_LIBS)
+
+python-lib: $(SHORTS_CORE_LIB)
+	@mkdir -p $(PYTHON_PACKAGE_MODULE_DIR)
+	cp $(PYTHON_PACKAGE_TEMPLATE_DIR)/pyproject.toml $(PYTHON_PACKAGE_DIR)/
+	cp $(PYTHON_PACKAGE_TEMPLATE_DIR)/README.md $(PYTHON_PACKAGE_DIR)/
+	cp $(PYTHON_PACKAGE_TEMPLATE_DIR)/__init__.py $(PYTHON_PACKAGE_MODULE_DIR)/
+	cp $(PYTHON_SOURCE_DIR)/game.py $(PYTHON_PACKAGE_MODULE_DIR)/
+	cp $(PYTHON_SOURCE_DIR)/game_runtime.py $(PYTHON_PACKAGE_MODULE_DIR)/
+	cp $(SHORTS_CORE_LIB) $(PYTHON_PACKAGE_MODULE_DIR)/
 
 # -----------------------------------------------------------------------------
 # Dyadics shared library
@@ -259,7 +279,7 @@ print:
 	@printf '  %s\n' $(GAME_LIBS)
 
 clean:
-	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR) $(PYTHON_PACKAGE_DIR)
 
 -include $(DYADICS_PIC_DEP)
 -include $(SHORTS_ALL_PIC_DEP)

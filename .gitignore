@@ -5,6 +5,7 @@ venv/
 emsdk/
 __pycache__/
 dist/
+/shortg/
 help.txt
 
 TAGS

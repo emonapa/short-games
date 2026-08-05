@@ -190,7 +190,10 @@ class Game:
         lib_path: str | None = None,
         memory_multiplier: float = 0.01,
     ) -> None:
-        from game_runtime import GameRuntime
+        if __package__:
+            from .game_runtime import GameRuntime
+        else:
+            from game_runtime import GameRuntime
 
         if cls._runtime is not None:
             try:
@@ -538,7 +541,10 @@ class GameConvert:
         lib_path: str | None = None,
         memory_multiplier: float = 0.01,
     ):
-        from game_runtime import GameConvertRuntime
+        if __package__:
+            from .game_runtime import GameConvertRuntime
+        else:
+            from game_runtime import GameConvertRuntime
 
         return GameConvertRuntime(
             lib_path=lib_path,
