@@ -121,11 +121,11 @@ initWasm().then((wasmModule) => {
                 <section class="help-dialog" role="dialog" aria-modal="true" aria-label="Hotpotch help">
                     <h2>Hotpotch Help</h2>
                     <ul>
-                        <li><b>Left click on the ground</b>: create or select a ground vertex.</li>
-                        <li><b>Left click a vertex, then another point</b>: build an edge. New edges keep chaining from the last endpoint.</li>
-                        <li><b>Hold and drag left mouse button through an edge</b>: cut that edge in Fruit Ninja style.</li>
-                        <li><b>Right click</b>: cancel the selected build vertex.</li>
-                        <li><b>Mouse wheel</b>: switch the build color between blue, red, and green.</li>
+                        <li><b>Click or tap the ground</b>: create or select a ground vertex.</li>
+                        <li><b>Click or tap a vertex, then another point</b>: build an edge. New edges keep chaining from the last endpoint.</li>
+                        <li><b>Drag through an edge</b>: cut that edge in Fruit Ninja style.</li>
+                        <li><b>Right click or tap the selected vertex again</b>: cancel the selected build vertex.</li>
+                        <li><b>Mouse wheel or building color button</b>: switch the build color between blue, red, and green.</li>
                         <li><b>Playing color button</b>: switch the player to move.</li>
                         <li><b>Convert</b>: compute the current game value and winner class.</li>
                         <li><b>Undo / Redo</b>: move through the edit and play history.</li>

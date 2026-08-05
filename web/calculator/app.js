@@ -9,7 +9,9 @@ try {
     const wasm = await initWasm();
     Game.configure(wasm);
     expression.disabled = false;
-    expression.focus();
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        expression.focus();
+    }
 
     expression.addEventListener('input', () => { error.textContent = ''; });
     expression.addEventListener('keydown', (event) => {

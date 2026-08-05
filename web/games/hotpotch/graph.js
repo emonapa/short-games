@@ -56,10 +56,16 @@ export class GraphScene {
         this.hoverLabel = null;
         this.onTurnChanged = null;
 
-        this.svg.addEventListener('mousedown', (e) => this.onSvgMouseDown(e));
-        this.svg.addEventListener('mousemove', (e) => this.onSvgMouseMove(e));
-        this.svg.addEventListener('mouseup', () => this.onSvgMouseUp());
-        this.svg.addEventListener('mouseleave', () => this.onSvgMouseUp());
+        this.svg.addEventListener('pointerdown', (e) => {
+            this.svg.setPointerCapture(e.pointerId);
+            this.onSvgPointerDown(e);
+        });
+        this.svg.addEventListener('pointermove', (e) => this.onSvgPointerMove(e));
+        this.svg.addEventListener('pointerup', (e) => {
+            this.onSvgPointerUp();
+            this.svg.releasePointerCapture(e.pointerId);
+        });
+        this.svg.addEventListener('pointercancel', () => this.cancelSlash());
         this.svg.addEventListener('contextmenu', (e) => { e.preventDefault(); this.cancelPending(); });
         new ResizeObserver(() => this.draw()).observe(this.svg);
     }
@@ -78,7 +84,7 @@ export class GraphScene {
         return pt.matrixTransform(this.svg.getScreenCTM().inverse());
     }
 
-    onSvgMouseDown(e) {
+    onSvgPointerDown(e) {
         if (e.button !== 0) return;
         const pt = this.getSVGPoint(e);
         let y = pt.y;
@@ -105,7 +111,9 @@ export class GraphScene {
                 this.vertices.push({ x: pt.x, y, isGround: isGroundClick, deleted: false });
                 endV = this.vertices.length - 1;
             }
-            if (this.pendingU !== endV) {
+            if (this.pendingU === endV) {
+                this.cancelPending(false);
+            } else {
                 this.saveState();
                 this.edges.push({ u: this.pendingU, v: endV, color: this.currentColor, deleted: false });
                 this.pendingU = endV;
@@ -114,7 +122,7 @@ export class GraphScene {
         this.draw();
     }
 
-    onSvgMouseMove(e) {
+    onSvgPointerMove(e) {
         if (!this.isSlashing) return;
         const pt = this.getSVGPoint(e);
         this.slashPoints.push({ x: pt.x, y: pt.y });
@@ -122,13 +130,19 @@ export class GraphScene {
         if (this.slashPathEl) this.slashPathEl.setAttribute('d', this._pointsPath(this.slashPoints));
     }
 
-    onSvgMouseUp() {
+    onSvgPointerUp() {
         if (!this.isSlashing) return;
         const cutIdx = this._findSlashedEdge();
         this.isSlashing = false;
         this.slashPoints = [];
         if (this.slashPathEl) { this.slashPathEl.remove(); this.slashPathEl = null; }
         if (cutIdx !== null) this.executeCut(cutIdx);
+    }
+
+    cancelSlash() {
+        this.isSlashing = false;
+        this.slashPoints = [];
+        if (this.slashPathEl) { this.slashPathEl.remove(); this.slashPathEl = null; }
     }
 
     _beginSlash(pt) {

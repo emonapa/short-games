@@ -131,6 +131,7 @@ button:active { background: var(--btn-active); transform: none; box-shadow: none
 svg {
     display: block;
     user-select: none;
+    touch-action: none;
 }
 
 /* SVG Elements styles */
@@ -163,3 +164,122 @@ svg {
     stroke-width: 4px;
 }
 
+@media (max-width: 700px) {
+    body {
+        height: 100dvh;
+    }
+
+    .navbar {
+        gap: 16px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .navbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    .navbar .logo {
+        flex: 0 0 auto;
+        margin-right: 0;
+        font-size: 1.15rem;
+    }
+
+    .navbar a {
+        flex: 0 0 auto;
+        font-size: 0.9rem;
+    }
+
+    .toolbar {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px;
+    }
+
+    .toolbar .divider,
+    .toolbar .spacer,
+    .toolbar .label {
+        display: none;
+    }
+
+    .tool-btn,
+    .icon-btn,
+    .color-btn,
+    .menu-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .color-btn,
+    .menu-btn {
+        border-radius: 18px;
+    }
+
+    .icon-btn img {
+        width: 25px;
+        height: 25px;
+    }
+
+    .action-btn {
+        height: 36px;
+        padding: 0 10px;
+        font-size: 14px;
+    }
+
+    .result-label {
+        order: 2;
+        width: 100%;
+        max-height: 2.6em;
+        margin: 0;
+        overflow: auto;
+        overflow-wrap: anywhere;
+        font-size: 12px;
+        line-height: 1.3;
+    }
+
+    .hotpotch-menu {
+        top: 42px;
+        max-width: calc(100vw - 16px);
+        max-height: calc(100dvh - 120px);
+        overflow-y: auto;
+    }
+
+    .help-dialog {
+        box-sizing: border-box;
+        width: calc(100vw - 24px);
+        max-height: calc(100dvh - 24px);
+        padding: 16px;
+    }
+
+    .edge {
+        stroke-width: 10;
+    }
+
+    .edge:hover {
+        stroke-width: 10;
+    }
+
+    .vertex {
+        stroke-width: 3;
+    }
+}
+
+@media (max-width: 350px) {
+    .toolbar {
+        gap: 5px;
+    }
+
+    .tool-btn,
+    .icon-btn,
+    .color-btn,
+    .menu-btn {
+        width: 32px;
+        height: 32px;
+    }
+
+    .action-btn {
+        height: 32px;
+        padding: 0 7px;
+    }
+}
