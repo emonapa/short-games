@@ -87,17 +87,17 @@ def print_winner(game: Game) -> None:
     zero_geq_game = zero >= game
 
     if game_geq_zero and zero_geq_game:
-        print("Vyhraje druhy hrac: G = 0")
+        print("Second player wins: G = 0")
     elif game_geq_zero and not zero_geq_game:
-        print("Vyhraje Left: G > 0")
+        print("Left wins: G > 0")
     elif not game_geq_zero and zero_geq_game:
-        print("Vyhraje Right: G < 0")
+        print("Right wins: G < 0")
     else:
-        print("Vyhraje prvni hrac: G || 0")
+        print("First player wins: G || 0")
 
 
 def main() -> None:
-    stones = int(input("Pocet kamenu: "))
+    stones = int(input("Number of stones: "))
 
     raw_game = TakeAwayGame()
     position = TakeAwayPosition(stones)

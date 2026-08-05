@@ -12,7 +12,7 @@ class KaylesGame:
 
 @dataclass(frozen=True)
 class KaylesPosition:
-    # bit 1 znamena, ze kuzelka jeste stoji
+    # A set bit means that the pin is still standing.
     mask: int
 
 
@@ -21,8 +21,8 @@ class KaylesConvert(GameConvert):
         super().__init__(use_c=False)
 
     def num_moves(self, raw_game: KaylesGame, position: KaylesPosition) -> int:
-        # move 0..n-1       = srazit jednu kuzelku i
-        # move n..2n-2      = srazit dvojici i, i+1
+        # Moves 0..n-1 knock down one pin i.
+        # Moves n..2n-2 knock down adjacent pins i and i+1.
         n = raw_game.length
         return 2 * n - 1
 
@@ -124,22 +124,22 @@ def winner_text(game: Game) -> str:
     zero_geq_game = zero >= game
 
     if game_geq_zero and zero_geq_game:
-        return "Vyhraje druhy hrac: G = 0"
+        return "Second player wins: G = 0"
 
     if game_geq_zero and not zero_geq_game:
-        return "Vyhraje Left: G > 0"
+        return "Left wins: G > 0"
 
     if not game_geq_zero and zero_geq_game:
-        return "Vyhraje Right: G < 0"
+        return "Right wins: G < 0"
 
-    return "Vyhraje prvni hrac: G || 0"
+    return "First player wins: G || 0"
 
 
 def main() -> None:
-    n = int(input("Pocet kuzelek: "))
+    n = int(input("Number of pins: "))
 
     if n < 0:
-        raise ValueError("Pocet kuzelek musi byt nezaporny")
+        raise ValueError("Number of pins must be nonnegative")
 
     raw_game = KaylesGame(n)
     position = KaylesPosition((1 << n) - 1)

@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from hb_theme import THEME, HBTheme
 
-# ── Config ────────────────────────────────────────────────────────────────────
+# Config
 
 CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hb_config.json")
 
@@ -51,7 +51,7 @@ def save_config(cfg: dict) -> None:
         pass
 
 
-# ── Theme presets ─────────────────────────────────────────────────────────────
+# Theme presets
 
 DARK_THEME = HBTheme()
 
@@ -96,7 +96,7 @@ def apply_theme_from_config() -> None:
     THEME.set_dark(cfg.get("dark_mode", True))
 
 
-# ── Internal style constants (settings panel always stays dark-ish) ───────────
+# Internal style constants. The settings panel always stays dark.
 # These are the panel's own chrome - they follow the theme via _on_theme_changed.
 
 _TOGGLE_STYLE = """
@@ -127,7 +127,7 @@ _CACHE_TOOLTIP = (
 )
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# Helpers
 
 def _divider(color: str = "#4a4a4a") -> QFrame:
     line = QFrame()
@@ -173,7 +173,7 @@ def _setting_row(layout, label_text: str, checked: bool,
     return cb
 
 
-# ── SettingsPanel ─────────────────────────────────────────────────────────────
+# SettingsPanel
 
 class SettingsPanel(QWidget):
     """
@@ -230,7 +230,7 @@ class SettingsPanel(QWidget):
         self._apply_theme(THEME.theme)
         THEME.changed.connect(self._apply_theme)
 
-    # ── Theme ─────────────────────────────────────────────────────────────────
+    # Theme
 
     def _apply_theme(self, theme) -> None:
         bg = theme.settings_bg_css()
@@ -260,7 +260,7 @@ class SettingsPanel(QWidget):
             else:
                 lbl.setStyleSheet(f"color: {text}; font-size: 16px;")
 
-    # ── Section builders ──────────────────────────────────────────────────────
+    # Section builders
 
     def _build_header(self, layout) -> None:
         row = QHBoxLayout()
@@ -348,7 +348,7 @@ class SettingsPanel(QWidget):
             tooltip=_CACHE_TOOLTIP,
         )
 
-    # ── Slots ─────────────────────────────────────────────────────────────────
+    # Slots
 
     def _on_dark_mode(self, state: int) -> None:
         self.cfg["dark_mode"] = bool(state)
@@ -369,7 +369,7 @@ class SettingsPanel(QWidget):
         self.cfg["dont_clear_cache_between_games"] = bool(state)
         save_config(self.cfg)
 
-    # ── Public ────────────────────────────────────────────────────────────────
+    # Public
 
     def reload(self) -> None:
         """Re-read config from disk and refresh all widgets without triggering slots."""

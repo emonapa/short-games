@@ -5,9 +5,9 @@ long long floor_div_pow2_i128(long long x, int d) {
     // floor(x / 2^d), d >= 0
     if (d <= 0) return x;
     long long denom = BIT(d);
-    long long q = x / denom;   // v C je to trunc toward 0
+    long long q = x / denom;   // C integer division truncates toward zero.
     long long r = x % denom;
-    if (r != 0 && x < 0) q -= 1; // dorovnat na floor pro zaporna
+    if (r != 0 && x < 0) q -= 1; // Adjust toward negative infinity.
     return q;
 }
 
@@ -17,7 +17,7 @@ long long ceil_div_pow2_i128(long long x, int d) {
     long long denom = BIT(d);
     long long q = x / denom;
     long long r = x % denom;
-    if (r != 0 && x > 0) q += 1; // dorovnat na ceil pro kladna
+    if (r != 0 && x > 0) q += 1; // Adjust toward positive infinity.
     return q;
 }
 

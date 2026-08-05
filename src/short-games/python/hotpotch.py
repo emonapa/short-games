@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         # education
         self.history = hb_education.HistoryManager(self.scene)
         self.edu_manager = hb_education.EducationManager(self.scene)
-        self.scene.edu_manager = self.edu_manager # pro vytvareni PNG dirty trik
+        self.scene.edu_manager = self.edu_manager # Share it with the PNG renderer.
 
         self.view = QGraphicsView(self.scene)
         self.view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.settings_panel)   # index 1 - settings
         self.stack.addWidget(self.calculator_panel) # index 2 - calculator
 
-        # --- POPISKY ---
+        # Labels.
         self.playing_lbl = QLabel("Playing: ")
         self.playing_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.playing_lbl.setStyleSheet("font-weight: bold; font-size: 16px;")
@@ -94,7 +94,7 @@ class MainWindow(QMainWindow):
         self.building_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.building_lbl.setStyleSheet("font-weight: bold; font-size: 16px;")
 
-        # --- TLAČÍTKA HRÁČE A EDITACE ---
+        # Player and edit controls.
         self.player_btn = QPushButton()
         self.player_btn.setFixedSize(40, 40)
         self.player_btn.setToolTip("Clicking swithces the player playing")
@@ -119,7 +119,7 @@ class MainWindow(QMainWindow):
             QPushButton { background-color: transparent; border: none; }
         """)
 
-        # --- TLAČÍTKA PRO STAVĚNÍ ---
+        # Building controls.
         self.color_btn = QPushButton("")
         self.color_btn.setFixedSize(40, 40)
         self.color_btn.clicked.connect(self.toggle_build_color)
@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
         self.result_lbl = QLabel("Wins: ")
         self.result_lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        # --- PLAY TLAČÍTKA ---
+        # Playback controls.
         icon_font = QFont()
         icon_font.setPointSize(THEME.theme.icon_btn_font_size)
 
@@ -172,7 +172,7 @@ class MainWindow(QMainWindow):
         self.step_fwd_btn.setFont(icon_font)
         self.step_fwd_btn.clicked.connect(self.step_forward)
 
-        # --- HORNÍ LAYOUT ---
+        # Top toolbar layout.
         top = QHBoxLayout()
         top.addWidget(self.clear_btn)
         top.addSpacing(6)
@@ -209,16 +209,16 @@ class MainWindow(QMainWindow):
         if self._cfg.get("start_with_edit", False):
             self.toggle_edit_mode()
 
-        # Converter pojede v jinem threadu
+        # Run conversion in a background thread.
         self._converter_worker = None
 
-        # Animace 3 tecek
+        # Animated progress dots.
         self._dot_timer = QTimer()
         self._dot_timer.setInterval(900)
         self._dot_timer.timeout.connect(self._tick_dots)
         self._dot_count = 0
 
-        # predem ulozeny string posledni hry
+        # Cached string for the latest game.
         self._last_game_string = ""
 
 

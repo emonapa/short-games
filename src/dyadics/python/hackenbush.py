@@ -578,11 +578,11 @@ class MainWindow(QMainWindow):
                 d = float(val.num) * float(1 << (-val.exp))
 
             if val.num > 0:
-                winner = "Modrý/Left"
+                winner = "Left"
             elif val.num < 0:
-                winner = "Červený/Right"
+                winner = "Right"
             else:
-                winner = "Druhý/Second"
+                winner = "Second player"
 
             if val.exp == 0:
                 value = str(val.num)

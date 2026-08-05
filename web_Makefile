@@ -1,10 +1,10 @@
 CC = emcc
 CFLAGS = -Wall -Wextra -std=c11 -Wno-unused -O3
 
-# Zajišťuje bezpečné vkládání čárek do seznamů v Makefilu
+# Allows commas to be inserted safely into Makefile lists.
 comma := ,
 
-# 1. Sada exportů POUZE pro čisté jádro (core)
+# 1. Exports for the standalone core.
 EXPORTED_FUNCS_CORE = \
   '_free', '_malloc', \
   '_short_game_init', '_short_game_free', \
@@ -19,7 +19,7 @@ EXPORTED_FUNCS_CORE = \
   '_game_append', '_game_append_many', '_game_resize', '_game_pop', \
   '_game_first', '_game_last', '_game_remove_unordered'
 
-# 2. Sada exportů konvertoru (společná pro všechny kompilované C hry)
+# 2. Converter exports shared by all compiled C games.
 EXPORTED_FUNCS_CONVERT = \
   '_convert', '_convert_component', '_convert_init', '_convert_free', \
   '_num_moves', '_can_left_move', '_can_right_move', \
@@ -27,7 +27,7 @@ EXPORTED_FUNCS_CONVERT = \
   '_get_independent_components'
 
 # ----------------------------------------------------------------------
-# 3. ZDE PŘIDÁVEJ SPECIFICKÉ FUNKCE PRO JEDNOTLIVÉ HRY (VELKÝMI PÍSMENY)
+# 3. Game-specific exports, keyed by the uppercase game name.
 # ----------------------------------------------------------------------
 EXPORTED_FUNCS_HOTPOTCH = '_cleanup_position'
 EXPORTED_FUNCS_DOMINEERING = 
@@ -79,19 +79,19 @@ games: $(GAME_TARGETS)
 
 core: $(CORE_TARGET)
 
-# Makro pro převod názvu složky hry na VELKÁ PÍSMENA (hotpotch -> HOTPOTCH)
+# Converts a game directory name to uppercase (hotpotch -> HOTPOTCH).
 TO_UPPER = $(shell echo $(1) | tr '[:lower:]' '[:upper:]')
 
-# Template pro kompilaci konkrétní hry
+# Template for compiling one game.
 define GAME_TEMPLATE
-# Vygenerování klíče velkými písmeny pro konkrétní hru
+# Uppercase lookup key for the game.
 UP_NAME_$(1) := $$(call TO_UPPER,$(1))
 
-# Makro magie: Poskládá string [CORE] + [CONVERT] a pokud je EXPORTED_FUNCS_<HRA> definována, přidá ", [HRA]"
+# Combines core and converter exports with optional game-specific exports.
 GAME_EXPORTS_$(1) = $(EXPORTED_FUNCS_CORE)$(comma) $(EXPORTED_FUNCS_CONVERT)$$(if $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))),$$(comma) $$(EXPORTED_FUNCS_$$(UP_NAME_$(1))))
 
 web/games/$(1)/lib$(1).js: $(SHORT_CORE_SRCS) $(CONVERT_SRCS) $$(wildcard $(GAMES_SRC_DIR)/$(1)/*.c)
-	@echo "Kompiluji hru: $(1)..."
+	@echo "Compiling game: $(1)..."
 	@mkdir -p web/games/$(1)
 	$$(CC) $$(CFLAGS) $$(INCLUDES) $$^ -o $$@ \
 		-s MODULARIZE=1 \
@@ -101,16 +101,16 @@ web/games/$(1)/lib$(1).js: $(SHORT_CORE_SRCS) $(CONVERT_SRCS) $$(wildcard $(GAME
 		-s EXPORTED_RUNTIME_METHODS="['UTF8ToString', 'stringToNewUTF8', 'getValue', 'setValue']"
 endef
 
-# Aplikování šablony na všechny nalezené hry
+# Instantiates the template for every discovered game.
 $(foreach game,$(GAME_NAMES),$(eval $(call GAME_TEMPLATE,$(game))))
 
-# Pravidlo pro čisté jádro (zůstává izolovano)
+# Standalone core target.
 $(CORE_TARGET): $(SHORT_CORE_SRCS)
-	@echo "Kompiluji ciste jadro (core)..."
+	@echo "Compiling standalone core..."
 	@mkdir -p web/core
 	$(CC) $(CFLAGS) $(INCLUDES) $^ -o $@ $(LDFLAGS_CORE)
 
 clean:
-	@echo "Mazu vygenerovane knihovny..."
+	@echo "Removing generated libraries..."
 	rm -f web/core/libshortcore.js web/core/libshortcore.wasm
 	rm -f web/games/*/lib*.js web/games/*/lib*.wasm

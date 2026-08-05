@@ -208,16 +208,16 @@ static int has_any_move(RawGame_t raw_game, Position_t position) {
 
 /*
  * Proof of concept:
- * Nedelame skutecny rozklad na nezavisle komponenty.
- * Pokud existuje aspon jeden tah, vratime jednu kopii cele pozice.
- * Pokud neexistuje tah, vratime 0 komponent a solve() dostane game_zero().
+ * This implementation does not split the position into independent components.
+ * If any move exists, it returns one copy of the complete position.
+ * If no move exists, it returns zero components and solve() receives game_zero().
  */
 int get_independent_components(RawGame_t raw_game, Position_t position, Position_t *sub_masks[]) {
     if (raw_game == NULL || position == NULL || sub_masks == NULL) error_exit(ERR_NULL_POINTER, "");
 
     if (!has_any_move(raw_game, position)) return 0;
 
-    // Pouze se překopírovává příchozí maska
+    // Copy the incoming occupancy mask.
     DomineeringPosition *pos = (DomineeringPosition *)position;
     DomineeringPosition *copy = malloc(sizeof *copy);
     if (copy == NULL) {

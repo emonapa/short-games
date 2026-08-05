@@ -19,7 +19,7 @@ static_assert(PROBE_LIMIT > 0, "Probe limit can't be nonpositive");
 #define PCT_GEQ    0.94
 #define PCT_ADD    0.005
 #define PCT_CANON  0.065
-#define PCT_INTERN 0.08 // tak vysoka, protoze bez teto cache pocitani konci
+#define PCT_INTERN 0.08 // Kept high because computation fails if this cache is exhausted.
 
 #define PCT_POS    0.04
 

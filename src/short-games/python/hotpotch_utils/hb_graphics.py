@@ -557,7 +557,7 @@ class GraphScene(QGraphicsScene):
         edge_idx, color, pos = self.pending_hint_data
 
         if edge_idx >= self.g.num_edges:
-            print(f"[CHYBA] edge_idx = {edge_idx}, num_edges = {self.g.num_edges}")
+            print(f"[ERROR] edge_idx = {edge_idx}, num_edges = {self.g.num_edges}")
             return
 
         temp_mask = ((1 << int(self.g.num_edges)) - 1) & ~(1 << edge_idx)
@@ -756,13 +756,13 @@ class GraphScene(QGraphicsScene):
             required_bottom = self.ground_y + GROUND_BAND_H + line_half
 
             if fixedX is not None and fixedX <= 0:
-                raise ValueError("fixedX musi byt kladne")
+                raise ValueError("fixedX must be positive")
             if fixedY is not None and fixedY <= 0:
-                raise ValueError("fixedY musi byt kladne")
+                raise ValueError("fixedY must be positive")
             if finalX is not None and finalX <= 0:
-                raise ValueError("finalX musi byt kladne")
+                raise ValueError("finalX must be positive")
             if finalY is not None and finalY <= 0:
-                raise ValueError("finalY musi byt kladne")
+                raise ValueError("finalY must be positive")
 
             auto_left = min_x - margin
             auto_top = min_y - margin
@@ -832,20 +832,20 @@ class GraphScene(QGraphicsScene):
                 final_width = int(finalX) if finalX is not None else width
                 final_height = int(finalY)
 
-                # O kolik se posune ground po scalení
+                # Measure the ground displacement after scaling.
                 scale_y = final_height / height
                 scaled_ground_y = local_ground_y * scale_y
 
-                # Chceme ground na (final_height - GROUND_BAND_H) + posun o polovinu vrcholu
+                # Place the ground above the bottom band by half the vertex radius.
                 target_ground_y = final_height - GROUND_BAND_H + self.hit_radius * 0.5
                 shift_scaled = scaled_ground_y - target_ground_y
 
-                # Shift zpět do prostoru před scalením
+                # Convert the shift back to pre-scaling coordinates.
                 shift_pre_scale = shift_scaled / scale_y
                 extra_h = int(math.ceil(shift_pre_scale))
                 new_height = height + extra_h
 
-                # Nový obrazek s extra výškou dole — jen průhledný, žádná země
+                # Add transparent space below the image without drawing the ground.
                 new_image = QImage(width, new_height, QImage.Format_ARGB32)
                 new_image.fill(Qt.transparent)
 
@@ -853,7 +853,7 @@ class GraphScene(QGraphicsScene):
                 painter.drawImage(0, 0, image)
                 painter.end()
 
-                # Scale na finální rozměr
+                # Scale to the final dimensions.
                 scaled_image = new_image.scaled(
                     final_width,
                     final_height,
@@ -861,7 +861,7 @@ class GraphScene(QGraphicsScene):
                     Qt.SmoothTransformation,
                 )
 
-                # Nakresli zem jednou, správně, přes celou šířku až do spodku
+                # Draw the ground once across the full width and down to the bottom.
                 ground_y_final = float(final_height - GROUND_BAND_H) + self.hit_radius * 0.5
 
                 painter = QPainter(scaled_image)
@@ -881,7 +881,7 @@ class GraphScene(QGraphicsScene):
 
                 return scaled_image.save(path, "PNG")
 
-            # --- Cesta bez finalY ---
+            # Path without finalY.
             final_width = int(finalX) if finalX is not None else width
 
             if finalX is not None:

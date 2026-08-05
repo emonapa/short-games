@@ -33,23 +33,23 @@ def cell_bit(index: int) -> int:
 
 def make_board(length: int) -> CToadsAndFrogsBoard:
     if length <= 0:
-        raise ValueError("Delka hraciho pole musi byt kladna")
+        raise ValueError("Board length must be positive")
 
     if length > TOADS_AND_FROGS_MAX_CELLS:
-        raise ValueError(f"Maximalni delka je {TOADS_AND_FROGS_MAX_CELLS}")
+        raise ValueError(f"Maximum board length is {TOADS_AND_FROGS_MAX_CELLS}")
 
     return CToadsAndFrogsBoard(length)
 
 
 def make_position(toads_mask: int, frogs_mask: int) -> CToadsAndFrogsPosition:
     if toads_mask < 0 or frogs_mask < 0:
-        raise ValueError("Masky nesmi byt zaporne")
+        raise ValueError("Masks must not be negative")
 
     if toads_mask >= (1 << 64) or frogs_mask >= (1 << 64):
-        raise ValueError("Masky musi byt uint64")
+        raise ValueError("Masks must be uint64 values")
 
     if (toads_mask & frogs_mask) != 0:
-        raise ValueError("Toads a Frogs nemuzou byt na stejnem policku")
+        raise ValueError("Toads and Frogs cannot occupy the same cell")
 
     return CToadsAndFrogsPosition(toads_mask, frogs_mask)
 
@@ -66,10 +66,10 @@ def parse_indices(text: str, length: int) -> list[int]:
         index = int(part)
 
         if index < 0 or index >= length:
-            raise ValueError(f"Index {index} je mimo rozsah 0..{length - 1}")
+            raise ValueError(f"Index {index} is outside the range 0..{length - 1}")
 
         if index in indices:
-            raise ValueError(f"Index {index} je zadany vicekrat")
+            raise ValueError(f"Index {index} is specified more than once")
 
         indices.append(index)
 
@@ -103,7 +103,7 @@ def print_board(length: int, toads_mask: int = 0, frogs_mask: int = 0) -> None:
             cell_line.append(".".center(index_width))
 
     print("Index: " + " ".join(index_line))
-    print("Pole:  " + " ".join(cell_line))
+    print("Board: " + " ".join(cell_line))
 
 
 class ToadsAndFrogsConverter(GameConvert):
@@ -144,9 +144,9 @@ def print_available_moves(
         if converter.can_right_move(board, position, move):
             frog_moves.append(move)
 
-    print("Dostupne tahy:")
-    print(f"  Left  - Toads doprava: {toad_moves}")
-    print(f"  Right - Frogs doleva:  {frog_moves}")
+    print("Available moves:")
+    print(f"  Left  - Toads move right: {toad_moves}")
+    print(f"  Right - Frogs move left:  {frog_moves}")
 
 
 def print_winner(game: Game) -> None:
@@ -155,15 +155,15 @@ def print_winner(game: Game) -> None:
     game_geq_zero = game >= zero
     zero_geq_game = zero >= game
 
-    print("\nVyhraje:")
+    print("\nWinner:")
     if game_geq_zero and zero_geq_game:
-        print("druhy hrac G = 0")
+        print("Second player: G = 0")
     elif game_geq_zero and not zero_geq_game:
-        print("levy hrac - Toads G > 0")
+        print("Left - Toads: G > 0")
     elif not game_geq_zero and zero_geq_game:
-        print("pravy hrac - Frogs G < 0")
+        print("Right - Frogs: G < 0")
     else:
-        print("prvni hrac G || 0")
+        print("First player: G || 0")
 
 
 def main() -> None:
@@ -171,49 +171,49 @@ def main() -> None:
 
     while True:
         try:
-            raw_length = input("Zadej delku jednodimenzionalniho pole\n> ")
+            raw_length = input("Enter the one-dimensional board length\n> ")
             board = make_board(int(raw_length))
             break
         except ValueError as exc:
-            print(f"Chyba: {exc}")
+            print(f"Error: {exc}")
             print()
 
     print()
-    print("Hraci pole s indexy:")
+    print("Board with indices:")
     print_board(board.length)
 
     while True:
         try:
             raw_toads = input(
-                "\nZadej indexy, na kterych maji byt Toads, oddelene mezerami.\n"
-                "Pro zadne Toads jen zmackni Enter.\n> "
+                "\nEnter the indices for Toads, separated by spaces.\n"
+                "Press Enter for no Toads.\n> "
             )
             toad_indices = parse_indices(raw_toads, board.length)
             toads_mask = make_mask(toad_indices)
             break
         except ValueError as exc:
-            print(f"Chyba: {exc}")
+            print(f"Error: {exc}")
 
     while True:
         try:
             raw_frogs = input(
-                "\nZadej indexy, na kterych maji byt Frogs, oddelene mezerami.\n"
-                "Pro zadne Frogs jen zmackni Enter.\n> "
+                "\nEnter the indices for Frogs, separated by spaces.\n"
+                "Press Enter for no Frogs.\n> "
             )
             frog_indices = parse_indices(raw_frogs, board.length)
             frogs_mask = make_mask(frog_indices)
 
             if toads_mask & frogs_mask:
-                raise ValueError("Toads a Frogs nemuzou byt na stejnem policku")
+                raise ValueError("Toads and Frogs cannot occupy the same cell")
 
             break
         except ValueError as exc:
-            print(f"Chyba: {exc}")
+            print(f"Error: {exc}")
 
     position = make_position(toads_mask, frogs_mask)
 
     print()
-    print("Zadana pozice:")
+    print("Entered position:")
     print_board(board.length, position.toads_mask, position.frogs_mask)
 
     converter = ToadsAndFrogsConverter(
@@ -227,11 +227,11 @@ def main() -> None:
         print_available_moves(converter, board, position)
 
         print()
-        print("Solvuju...")
+        print("Solving...")
         game = converter.convert(board, position)
 
         print()
-        print("Vysledek:")
+        print("Result:")
         print(game.formatted)
 
         print_winner(game)

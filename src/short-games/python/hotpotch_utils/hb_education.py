@@ -20,8 +20,8 @@ class EduBubble(QGraphicsItem):
 
         self.rect_height = 27
         #self.rect_height = 90
-        self.rect_width = max(36, text_width + 16) # Minimálně kulaté
-        #self.rect_width = 1.5*text_width + 90 # Minimálně kulaté
+        self.rect_width = max(36, text_width + 16) # Keep the bubble rounded.
+        #self.rect_width = 1.5*text_width + 90 # Keep the bubble rounded.
 
         self.offset_x = -self.rect_width / 2
         self.offset_y = -self.rect_height / 2
@@ -38,7 +38,7 @@ class EduBubble(QGraphicsItem):
         painter.setPen(QPen(pen_color, 2))
 
         rect = self.boundingRect()
-        painter.drawRoundedRect(rect, self.rect_height / 2, self.rect_height / 2) # Tvar pilulky/kolečka
+        painter.drawRoundedRect(rect, self.rect_height / 2, self.rect_height / 2) # Pill-shaped bubble.
 
         font = QFont("Consolas", self.font_size, QFont.Bold)
         painter.setFont(font)
@@ -60,7 +60,7 @@ class HistoryManager:
                     self.scene.vertex_pos[i].x(),
                     self.scene.vertex_pos[i].y(),
                     self.scene.is_ground[i],
-                    self.scene.vertex_items[i] is not None # Uložíme informaci, zda vrchol ještě žije
+                    self.scene.vertex_items[i] is not None # Record whether the vertex is still alive.
                 )
                 for i in range(int(self.scene.g.num_vertices))
             ],
@@ -80,7 +80,7 @@ class HistoryManager:
             self.scene.vertex_pos[idx] = QPointF(x, y)
             self.scene.is_ground[idx] = is_gnd
 
-            # Vykreslíme POUZE ty vrcholy, co přežily gravitaci
+            # Render only vertices that survived gravity.
             if is_alive:
                 self.scene._render_vertex(idx, is_ground=is_gnd)
             idx += 1
@@ -102,9 +102,9 @@ class HistoryManager:
     def undo(self):
         if not self.undo_stack: return False
         current_state = self.get_current_state()
-        # aby jsme po vraceni clear nesli dopredu do clear stavu
-        if current_state['edges']: # if is not empty
-            self.redo_stack.append(current_state) # append
+        # Do not let undoing a clear operation create a cleared redo state.
+        if current_state['edges']:
+            self.redo_stack.append(current_state)
         self.load_state(self.undo_stack.pop())
         return True
 
@@ -162,7 +162,7 @@ class EducationManager:
             #g_i = cached_convert(mask_after_i)
             move_data[idx] = { 'g_i': g_i, 'mask': mask_after_i, 'type': 'normal', 'ref_idx': None }
 
-        # 1. REVERZIBILNÍ TAHY (Hledáme tu absolutně NEJHORŠÍ odpověď protihráče)
+        # 1. Reversible moves: choose the worst reply for the current player.
         opp_color = hb_converter.EDGE_RED if is_left else hb_converter.EDGE_BLUE
         for idx in valid_moves:
             g_i = move_data[idx]['g_i']
@@ -185,9 +185,9 @@ class EducationManager:
                     if not g_ij: continue
 
                     is_rev = False
-                    # Správná CGT logika reverzibility:
-                    # Modrého reverzuje Červený, pokud najde tah g_ij <= root_game
-                    # Červeného reverzuje Modrý, pokud najde tah g_ij >= root_game
+                    # CGT reversibility conditions:
+                    # A Blue move is reversible if Red has a reply g_ij <= root_game.
+                    # A Red move is reversible if Blue has a reply g_ij >= root_game.
                     if is_left and converter.game_geq(root_game, g_ij):
                         is_rev = True
                     elif not is_left and converter.game_geq(g_ij, root_game):
@@ -198,14 +198,14 @@ class EducationManager:
                             best_rev_j = j
                             best_rev_val = g_ij
                         else:
-                            # Chceme pro nás to nejhorší (Tedy pro reverzujícího soupeře to nejlepší)
+                            # Keep the worst reply for the current player.
                             if is_left:
-                                # Modrý hledá minimum g_ij (nejlepší pro Červeného)
+                                # Blue selects the minimum g_ij, which is best for Red.
                                 if converter.game_geq(best_rev_val, g_ij):
                                     best_rev_j = j
                                     best_rev_val = g_ij
                             else:
-                                # Červený hledá maximum g_ij (nejlepší pro Modrého)
+                                # Red selects the maximum g_ij, which is best for Blue.
                                 if converter.game_geq(g_ij, best_rev_val):
                                     best_rev_j = j
                                     best_rev_val = g_ij
@@ -214,7 +214,7 @@ class EducationManager:
                 move_data[idx]['type'] = 'reversible'
                 move_data[idx]['ref_idx'] = best_rev_j
 
-        # 2. DOMINOVANÉ TAHY (Hledáme ten absolutně NEJLEPŠÍ tah, co ho dominuje)
+        # 2. Dominated moves: choose the strongest dominating move.
         for idx in valid_moves:
             if move_data[idx]['type'] == 'reversible': continue
             g_i = move_data[idx]['g_i']
@@ -239,14 +239,14 @@ class EducationManager:
                         best_dom_k = k
                         best_dom_val = g_k
                     else:
-                        # Hledáme náš absolutně nejlepší tah, který tuto variantu dominuje
+                        # Keep the strongest move that dominates this option.
                         if is_left:
-                            # Modrý hledá maximum g_k
+                            # Blue selects the maximum g_k.
                             if converter.game_geq(g_k, best_dom_val):
                                 best_dom_k = k
                                 best_dom_val = g_k
                         else:
-                            # Červený hledá minimum g_k
+                            # Red selects the minimum g_k.
                             if converter.game_geq(best_dom_val, g_k):
                                 best_dom_k = k
                                 best_dom_val = g_k
@@ -255,7 +255,7 @@ class EducationManager:
                 move_data[idx]['type'] = 'dominated'
                 move_data[idx]['ref_idx'] = best_dom_k
 
-        # 3. Vykreslení aktivního hráče
+        # 3. Render indices for the active player's moves.
         for idx in valid_moves:
             data = move_data[idx]
             text = f"{idx}"
@@ -274,7 +274,7 @@ class EducationManager:
             self.scene.addItem(bubble)
             self.bubbles.append(bubble)
 
-        # 4. Obyčejné indexy pro hrany protihráče
+        # 4. Render plain indices for the opponent's edges.
         for idx in range(self.scene.g.num_edges):
             if idx not in valid_moves:
                 bubble = EduBubble(f"{idx}", False, False)

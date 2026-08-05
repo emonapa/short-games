@@ -31,22 +31,22 @@ class CDomineeringPosition(Structure):
 
 def make_board(width: int, height: int) -> CDomineeringBoard:
     if width <= 0 or height <= 0:
-        raise ValueError("Rozmery hraciho pole musi byt kladne")
+        raise ValueError("Board dimensions must be positive")
 
     if width > DOMINEERING_MAX_WIDTH or height > DOMINEERING_MAX_HEIGHT:
         raise ValueError(
-            f"Maximalni velikost je {DOMINEERING_MAX_WIDTH}x{DOMINEERING_MAX_HEIGHT}"
+            f"Maximum board size is {DOMINEERING_MAX_WIDTH}x{DOMINEERING_MAX_HEIGHT}"
         )
 
     if width * height > DOMINEERING_MAX_CELLS:
-        raise ValueError("Hraci pole ma moc bunek pro uint64 masku")
+        raise ValueError("The board has too many cells for a uint64 mask")
 
     return CDomineeringBoard(width, height)
 
 
 def make_position(occupied_mask: int = 0) -> CDomineeringPosition:
     if occupied_mask < 0 or occupied_mask >= (1 << 64):
-        raise ValueError("occupied_mask musi byt uint64")
+        raise ValueError("occupied_mask must be a uint64 value")
 
     return CDomineeringPosition(occupied_mask)
 
@@ -67,7 +67,7 @@ def parse_dimensions(text: str) -> tuple[int, int]:
     parts = text.strip().split()
 
     if len(parts) != 2:
-        raise ValueError("Zadej presne dve cisla: sirka vyska")
+        raise ValueError("Enter exactly two numbers: width height")
 
     return int(parts[0]), int(parts[1])
 
@@ -84,7 +84,7 @@ def parse_removed_cells(text: str, cell_count: int) -> list[int]:
         index = int(part)
 
         if index < 0 or index >= cell_count:
-            raise ValueError(f"Index bunky {index} je mimo rozsah 0..{cell_count - 1}")
+            raise ValueError(f"Cell index {index} is outside the range 0..{cell_count - 1}")
 
         result.append(index)
 
@@ -190,9 +190,9 @@ def print_available_moves(
         if converter.can_right_move(board, position, move):
             right_moves.append(move)
 
-    print("Dostupne tahy:")
-    print(f"  Left  - vertikalni domino:   {left_moves}")
-    print(f"  Right - horizontalni domino: {right_moves}")
+    print("Available moves:")
+    print(f"  Left  - vertical dominoes:   {left_moves}")
+    print(f"  Right - horizontal dominoes: {right_moves}")
 
 
 def print_winner(game: Game) -> None:
@@ -201,15 +201,15 @@ def print_winner(game: Game) -> None:
     game_geq_zero = game >= zero
     zero_geq_game = zero >= game
 
-    print("\nVyhraje:")
+    print("\nWinner:")
     if game_geq_zero and zero_geq_game:
-        print("druhý hráč G = 0")
+        print("Second player: G = 0")
     elif game_geq_zero and not zero_geq_game:
-        print("levý hráč (vertikalní domino) G > 0")
+        print("Left (vertical dominoes): G > 0")
     elif not game_geq_zero and zero_geq_game:
-        print("pravý hráč (horizontalní domino) G < 0")
+        print("Right (horizontal dominoes): G < 0")
     else:
-        print("první hráč G || 0")
+        print("First player: G || 0")
 
 
 def main() -> None:
@@ -217,16 +217,16 @@ def main() -> None:
 
     while True:
         try:
-            dims = input("Zadej rozmery hraciho pole jako: sirka vyska\n> ")
+            dims = input("Enter board dimensions as: width height\n> ")
             width, height = parse_dimensions(dims)
             board = make_board(width, height)
             break
         except ValueError as exc:
-            print(f"Chyba: {exc}")
+            print(f"Error: {exc}")
             print()
 
     print()
-    print("Hraci pole s indexy bunek:")
+    print("Board with cell indices:")
     print_board(board.width, board.height, 0)
 
     cell_count = board.width * board.height
@@ -234,19 +234,19 @@ def main() -> None:
     while True:
         try:
             raw_removed = input(
-                "\nZadej indexy bunek, ktere chces odstranit, oddelene mezerami.\n"
-                "Pro prazdne pole jen zmackni Enter.\n> "
+                "\nEnter the indices of cells to remove, separated by spaces.\n"
+                "Press Enter for an empty board.\n> "
             )
             removed_indices = parse_removed_cells(raw_removed, cell_count)
             removed_mask = make_removed_mask(removed_indices)
             break
         except ValueError as exc:
-            print(f"Chyba: {exc}")
+            print(f"Error: {exc}")
 
     position = make_position(removed_mask)
 
     print()
-    print("Hraci pole po odstraneni bunek:")
+    print("Board after removing cells:")
     print_board(board.width, board.height, removed_mask)
 
     converter = DomineeringConverter(
@@ -260,11 +260,11 @@ def main() -> None:
         print_available_moves(converter, board, position)
 
         print()
-        print("Solvuju...")
+        print("Solving...")
         game = converter.convert(board, position)
 
         print()
-        print("Vysledek:")
+        print("Result:")
         print(game.formatted)
 
         print_winner(game)

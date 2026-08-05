@@ -29,13 +29,13 @@ class ConverterWorker(QThread):
             g_geq_0 = val >= zero_game
             zero_geq_g = zero_game >= val
             if g_geq_0 and not zero_geq_g:
-                res_str = " Modrý/Left (G > 0)"
+                res_str = " Left (G > 0)"
             elif not g_geq_0 and zero_geq_g:
-                res_str = " Červený/Right (G < 0)"
+                res_str = " Right (G < 0)"
             elif g_geq_0 and zero_geq_g:
-                res_str = " 2. hráč/Second (G = 0)"
+                res_str = " Second player (G = 0)"
             else:
-                res_str = " 1. hráč/First (G || 0)"
+                res_str = " First player (G || 0)"
 
             self.result_ptr = val
             print(f"[Converter] Done in {elapsed:.3f} s - {res_str.strip()}", flush=True)

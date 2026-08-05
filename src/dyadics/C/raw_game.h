@@ -42,8 +42,8 @@ typedef struct {
 } BaseGraph;
 
 typedef struct {
-    edge_mask_t live_mask;      // bity hran
-    uint8_t  player_to_move; // 0 = modrý, 1 = červený
+    edge_mask_t live_mask;   // Edge bits.
+    uint8_t player_to_move;  // 0 = Blue, 1 = Red.
 } Position;
 
 void build_adjacency(const BaseGraph *g, edge_mask_t live_mask,

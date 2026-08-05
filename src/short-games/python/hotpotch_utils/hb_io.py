@@ -70,7 +70,7 @@ def deserialize_scene(scene, data: Dict[str, Any]) -> None:
         scene.vertex_items[0] = None
     scene._render_vertex(0, is_ground=True)
 
-    # zbytek vrcholu
+    # Remaining vertices.
     for i in range(1, len(vertices)):
         if i >= len(scene.vertex_pos):
             break

@@ -3,7 +3,7 @@
 #include "hash_game.h"
 #include "raw_game.h"
 
-#define HASH_GAME_SIZE (1u << 18) // 262144 položek, open addressing
+#define HASH_GAME_SIZE (1u << 18) // 262144 entries, open addressing.
 #define HASH_GAME_MASK (HASH_GAME_SIZE - 1)
 
 typedef struct {
@@ -36,7 +36,7 @@ int hash_game_lookup(edge_mask_t key, Dyadic *out_value) {
     for (uint32_t i = 0; i < HASH_GAME_SIZE; ++i) {
         uint32_t j = (idx + i) & HASH_GAME_MASK;
         if (!hash_table[j].used) {
-            return 0; // nenalezeno
+            return 0; // Not found.
         }
 
         if (hash_table[j].key == key) {
@@ -60,5 +60,5 @@ void hash_game_insert(edge_mask_t key, Dyadic value) {
             return;
         }
     }
-    // tabulka plná, nic moc co dělat, prostě neinsertneme
+    // The table is full, so skip the insertion.
 }

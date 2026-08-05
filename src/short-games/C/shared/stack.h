@@ -9,10 +9,10 @@
 #include "error.h"
 
 typedef struct {
-    unsigned char *data;   // interni buffer
-    size_t size;           // pocet prvku
-    size_t cap;            // kapacita v poctu prvku
-    size_t elem_size;      // velikost jednoho prvku v bajtech
+    unsigned char *data;   // Internal buffer.
+    size_t size;           // Number of elements.
+    size_t cap;            // Capacity in elements.
+    size_t elem_size;      // Size of one element in bytes.
 } TStack;
 
 
@@ -96,16 +96,9 @@ static inline void *Top(TStack *stack) {
 }
 
 /*
- * =================================
- * |     DULEZITE / IMPORTANT      |
- * =================================
- * Pop vraci pointer na popped prvek,
- * ale po funkci Push NENI DEFINOVANE, co v nem je.
- *
- * Je to kvuli tomu, ze po zavolani Push se muze stack realokovat
- * a tim padem bude pointer prvku ukazovat na nevalidni pamet.
- *
- * Toto je kompromis mezi rychlosti a pouzitelnosti.
+ * Pop returns a pointer to the removed element. Its contents are undefined
+ * after a subsequent Push because the stack may be reallocated and invalidate
+ * the pointer. This is a tradeoff between performance and usability.
  */
 static inline void *Pop(TStack *stack) {
     if (IsEmpty(stack)) {

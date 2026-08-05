@@ -21,10 +21,10 @@ typedef struct {
 void game_intern_cache_init(size_t intern_size);
 void game_intern_cache_free(void);
 
-// Seradi left/right podle pointeru, aby klic byl stabilni
+// Sort left and right options by pointer to keep the key stable.
 void game_intern_cache_prepare(Game *G);
 
-// Vrati existujici identicky kanonicky uzel nebo vlozi a vrati G
+// Return an existing identical canonical node, or insert and return G.
 Game* game_intern_cache_get(Game *G);
 
 Game* game_intern_cache_prep_and_get(Game *G);

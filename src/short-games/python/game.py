@@ -443,7 +443,7 @@ class Game:
         return Game.new(_options_list(left), [self])
 
 
-# Sada jmen metod, ktere lze prepisovat v podtride.
+    # Method names that subclasses may override.
 _OVERRIDABLE_METHODS = frozenset({
     "num_moves",
     "can_left_move",
@@ -459,7 +459,7 @@ class GameConvert:
     """
     High-level converter from raw game positions to Game.
 
-    Rezimy:
+    Backends:
 
     1. C backend:
         conv = GameConvert(use_c=True)
@@ -480,9 +480,9 @@ class GameConvert:
         conv = MyConvert()
         g = conv.convert(raw_game, position)
 
-    convert() a convert_component() se neprepisuji.
-    Pokud use_c=False, pouzije se Python implementace techto dvou metod.
-    Pokud use_c=True, pouzije se C implementace.
+    convert() and convert_component() are not overridden.
+    When use_c=False, these methods use the Python implementation.
+    When use_c=True, they use the C implementation.
     """
 
     _default_runtime = None

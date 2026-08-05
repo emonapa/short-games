@@ -66,7 +66,7 @@ int position_cache_get(RawGame_t raw_game, Position_t position, Game **out_value
     for (size_t i = 0; i < PROBE_LIMIT; ++i) {
         size_t j = (idx + i) & pos_memo_mask;
         if (!position_cache[j].used) {
-            return 0; // nenalezeno
+            return 0; // Not found.
         }
 
         if (position_cache[j].hash == h) {
@@ -102,7 +102,7 @@ void position_cache_insert(RawGame_t raw_game, Position_t position, Game *value)
 
         if (!position_cache[j].used) {
             position_cache[j].used = 1;
-            position_cache[j].hash = h; // Uložíme si hash
+            position_cache[j].hash = h; // Store the hash.
             position_cache[j].value = value;
             pos_items_count++;
             return;

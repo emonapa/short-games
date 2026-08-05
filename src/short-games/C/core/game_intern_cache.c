@@ -120,7 +120,7 @@ void game_intern_cache_init(size_t intern_size)
         intern_memo_size = intern_size;
         intern_memo_mask = intern_size - 1;
 
-        // Limit dame na 95 %, protoze vypnuti internu je fatalni
+        // Keep the load below 95% because disabling interning is fatal.
         intern_max_items = (size_t)(intern_size * 0.95);
 
         game_intern_cache = (InternEntry *)calloc(intern_memo_size, sizeof(InternEntry));
@@ -171,7 +171,7 @@ Game *game_intern_cache_get(Game *G)
         }
     }
 
-    // Cache plna, fallback
+    // The cache is full; use the fallback.
     return G;
 }
 

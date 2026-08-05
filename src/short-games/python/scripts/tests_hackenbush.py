@@ -6,7 +6,6 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-# Uprav podle umístění souboru test_hotpotch.py
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 sys.path.append(str(ROOT / "hotpotch"))

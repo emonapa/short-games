@@ -25,7 +25,7 @@ static inline size_t get_size_free_memory(void) {
     long page_size = sysconf(_SC_PAGE_SIZE);
 
     if (pages == -1 || page_size == -1) {
-        // fallback na 2 GB
+        // Fall back to 2 GB.
         return 2ULL * 1024 * 1024 * 1024;
     }
 

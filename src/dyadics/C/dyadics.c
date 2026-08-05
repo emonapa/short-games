@@ -63,8 +63,8 @@ Dyadic dyadic_simplest_between(Dyadic a, Dyadic b) {
 
     //printf("-------- new cycle -----------\n");
     for (int k = 0; k <= MAX_K; ++k) {
-        // hledame n tak, aby a < n/2^k < b
-        // tj. a*2^k < n < b*2^k
+        // Find n such that a < n/2^k < b.
+        // Therefore a*2^k < n < b*2^k.
         long long n_min = floor_scaled(a, k) + 1;
         long long n_max = ceil_scaled(b, k) - 1;
         //printf("[k: %d] n_min: %lld, n_max: %lld\n", k, n_min, n_max);
@@ -156,22 +156,22 @@ Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
 }
 
 #else
-// Stack frame pro iterativní výpočet hodnoty
+// Stack frame for iterative value evaluation.
 typedef struct {
     edge_mask_t live_mask;
-    int      stage;            // 0 = nový, 1 = procházím tahy, 2 = hotovo
-    int      edge_index;       // kde jsme v procházení hran
-    EdgeColor last_move_color; // barva hrany, kterou jsme šli do potomka
+    int      stage;            // 0 = new, 1 = traversing moves, 2 = complete
+    int      edge_index;       // Current position in the edge traversal.
+    EdgeColor last_move_color; // Color of the edge used to reach the child.
 
     int      has_left;
     int      has_right;
-    Dyadic   l_max;            // max hodnota z levých možností (modré tahy)
-    Dyadic   r_min;            // min hodnota z pravých možností (červené tahy)
+    Dyadic   l_max;            // Maximum left-option value (Blue moves).
+    Dyadic   r_min;            // Minimum right-option value (Red moves).
 
-    Dyadic   result;           // hotová hodnota pro tuto pozici
+    Dyadic   result;           // Completed value for this position.
 } SolverFrame;
 
-// Iterativní výpočet hodnoty pozice (bez rekurze)
+// Evaluates a position iteratively, without recursion.
 Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
     SolverFrame stack[MAX_EDGES + 1];
     int top = 0;
@@ -181,7 +181,7 @@ Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
     while (top > 0) {
         SolverFrame *f = &stack[top - 1];
 
-        // -- Stage 0: Memo / triviální případ --
+        // Stage 0: memoized or trivial case.
         if (f->stage == 0) {
             Dyadic v;
             if (hash_game_lookup(f->live_mask, &v)) { f->result = v; f->stage = 2; }
@@ -189,7 +189,7 @@ Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
             else                             f->stage = 1;
         }
 
-        // -- Stage 1: Procházení hran --
+        // Stage 1: traverse edges.
         if (f->stage == 1) {
             int pushed = 0;
             for (int e = f->edge_index; e < g->num_edges; e++) {
@@ -216,7 +216,7 @@ Dyadic solve(const BaseGraph *g, edge_mask_t live_mask) {
             }
         }
 
-        // -- Stage 2: Propagace výsledku rodiči --
+        // Stage 2: propagate the result to the parent.
         if (f->stage == 2) {
             Dyadic value = f->result;
             hash_game_insert(f->live_mask , value);

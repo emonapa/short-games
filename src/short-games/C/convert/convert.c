@@ -99,7 +99,7 @@ Game* convert(void *raw_game, void *position) {
         Game *sub_game = convert_component(raw_game, sub_games[i]);
         total_sum = game_add(total_sum, sub_game);
 #ifdef PRINT_RESULT
-       printf("-------------[%d] Průchod-------------\n", i);
+       printf("-------------[%d] Pass-------------\n", i);
        print_stats();
 #endif
        // Components are usually different, so the cache could be reset here,
@@ -119,7 +119,7 @@ Game* convert(void *raw_game, void *position) {
 #endif
 
     for (int i = 0; i < count; i++) free(sub_games[i]);
-    // This freeing is possible here, but it makes the code less general, so just leak it!
+    // The generic interface does not define how to release the sub_games container.
     //game_free(sub_games);
 
     return total_sum;
