@@ -78,6 +78,9 @@ body {
     box-shadow: 4px 4px 0px #111;
 }
 
+.container a { color: #8ab4f8; }
+.container a:visited { color: #c58af9; }
+
 .home-page .container p,
 .home-page .container li {
     font-size: 1.08rem;
